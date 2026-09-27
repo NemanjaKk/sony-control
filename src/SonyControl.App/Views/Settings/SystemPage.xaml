@@ -29,7 +29,7 @@
                                 MinWidth="180"
                                 VerticalAlignment="Center"
                                 AutomationProperties.Name="Auto power-off"
-                                ItemsSource="{x:Bind vm:HeadsetViewModel.AutoPowerOffOptions}"
+                                ItemsSource="{x:Bind ViewModel.SelectedHeadset.AutoPowerOffOptions, Mode=OneWay}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedHeadset.AutoPowerOffIndex, Mode=TwoWay}" />
                         </Grid>
                     </Border>
@@ -46,6 +46,46 @@
                                 AutomationProperties.Name="Adaptive volume"
                                 IsOn="{x:Bind ViewModel.SelectedHeadset.AdaptiveVolume, Mode=TwoWay}"
                                 Style="{StaticResource CardToggleSwitchStyle}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- WH-XB900N Voice Guidance -->
+                    <Border
+                        Style="{StaticResource SettingsCardStyle}"
+                        Visibility="{x:Bind ViewModel.SelectedHeadset.HasVoiceGuidanceControl, Mode=OneWay}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Voice guidance" />
+                                <TextBlock
+                                    Style="{StaticResource SecondaryTextStyle}"
+                                    Text="Enable or disable headset voice guidance." />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                MinWidth="180"
+                                AutomationProperties.Name="Voice guidance"
+                                ItemsSource="{x:Bind vm:HeadsetViewModel.VoiceGuidanceOptions}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedHeadset.VoiceGuidanceIndex, Mode=TwoWay}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- WH-XB900N Bluetooth connection quality -->
+                    <Border
+                        Style="{StaticResource SettingsCardStyle}"
+                        Visibility="{x:Bind ViewModel.SelectedHeadset.HasConnectionQualityControl, Mode=OneWay}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Connection mode" />
+                                <TextBlock
+                                    Style="{StaticResource SecondaryTextStyle}"
+                                    Text="Choose SBC, AAC, or High Quality. The active codec is shown by the headset status." />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                MinWidth="180"
+                                AutomationProperties.Name="Connection mode"
+                                ItemsSource="{x:Bind vm:HeadsetViewModel.ConnectionQualityOptions}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedHeadset.ConnectionQualityIndex, Mode=TwoWay}" />
                         </Grid>
                     </Border>
                 </StackPanel>

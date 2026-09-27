@@ -111,6 +111,8 @@ Core::HeadsetState toHeadsetState(const sony::protocol::DeviceState& state) {
     result.Equalizer.Band5 = state.equalizer.bands[4];
 
     result.Dsee = state.dsee;
+    result.ConnectionQuality = state.connectionQuality;
+    result.VoiceGuidance = state.voiceGuidance;
     result.SpeakToChat = state.speakToChat;
     result.AdaptiveVolume = state.adaptiveVolume;
     result.AutoPowerOff = state.autoPowerOff;
@@ -191,6 +193,14 @@ IAsyncOperation<bool> HeadsetClient::ConnectAudioAsync(hstring bluetoothAddress)
     co_return sony::audio::requestAudioConnect(*address);
 }
 
+IAsyncOperation<bool> HeadsetClient::DisconnectAudioAsync(hstring bluetoothAddress) {
+    const auto address = sony::transport::parseBluetoothAddress(to_string(bluetoothAddress));
+    co_await resume_background();
+    if (!address) {
+        co_return false;
+    }
+    co_return sony::audio::requestAudioDisconnect(*address);
+}
 com_array<Core::EqualizerPresetInfo> HeadsetClient::GetEqualizerPresets() {
     const auto& presets = sony::protocol::equalizerPresets();
 
@@ -241,6 +251,7 @@ Core::HeadsetCapabilities HeadsetClient::Capabilities() const {
     result.Equalizer = capabilities.equalizer;
     result.ClearBass = capabilities.clearBass;
     result.Dsee = capabilities.dsee;
+    result.ConnectionQuality = capabilities.connectionQuality;
     result.SpeakToChat = capabilities.speakToChat;
     result.AdaptiveVolume = capabilities.adaptiveVolume;
     result.AutoPowerOff = capabilities.autoPowerOff;
@@ -311,8 +322,26 @@ IAsyncAction HeadsetClient::PowerOffAsync() {
     return RunAsync([](sony::protocol::HeadsetController& controller) { controller.powerOff(); });
 }
 
+IAsyncAction HeadsetClient::SetConnectionQualityAsync(bool prioritizeStableConnection) {
+    return RunAsync([prioritizeStableConnection](sony::protocol::HeadsetController& controller) {
+        controller.setConnectionQuality(prioritizeStableConnection);
+    });
+}
+
 IAsyncAction HeadsetClient::SetDseeAsync(bool enabled) {
     return RunAsync([enabled](sony::protocol::HeadsetController& controller) { controller.setDsee(enabled); });
+}
+
+IAsyncAction HeadsetClient::SetVptAsync(int32_t preset) {
+    return RunAsync([preset](sony::protocol::HeadsetController& controller) { controller.setVpt(preset); });
+}
+
+IAsyncAction HeadsetClient::SetSoundPositionAsync(int32_t position) {
+    return RunAsync([position](sony::protocol::HeadsetController& controller) { controller.setSoundPosition(position); });
+}
+
+IAsyncAction HeadsetClient::SetVoiceGuidanceAsync(int32_t value) {
+    return RunAsync([value](sony::protocol::HeadsetController& controller) { controller.setVoiceGuidance(value); });
 }
 
 IAsyncAction HeadsetClient::SetSpeakToChatAsync(bool enabled) {

@@ -59,11 +59,19 @@ internal sealed class FakeBluetoothAudio : IBluetoothAudio
 {
     public List<string> Requests { get; } = [];
 
+    public List<string> DisconnectRequests { get; } = [];
+
     public bool Accept { get; set; } = true;
 
     public Task<bool> ConnectAsync(string bluetoothAddress)
     {
         Requests.Add(bluetoothAddress);
+        return Task.FromResult(Accept);
+    }
+
+    public Task<bool> DisconnectAsync(string bluetoothAddress)
+    {
+        DisconnectRequests.Add(bluetoothAddress);
         return Task.FromResult(Accept);
     }
 }

@@ -51,6 +51,7 @@
     <ClCompile Include="FrameCodecTests.cpp" />
     <ClCompile Include="SessionLifecycleTests.cpp" />
     <ClCompile Include="Xm4Tests.cpp" />
+    <ClCompile Include="WhXb900nTests.cpp" />
     <ClCompile Include="Xm6ConnectionTests.cpp" />
   </ItemGroup>
 

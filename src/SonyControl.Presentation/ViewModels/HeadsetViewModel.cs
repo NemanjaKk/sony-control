@@ -34,6 +34,11 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     private const string NoValue = "—";
 
+    private static readonly Action<ILogger, string, string, Exception?> LogWhXb900nState =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Information,
+            new EventId(1, nameof(LogWhXb900nState)),
+            "WH-XB900N state: ConnectionMode={ConnectionMode}, Codec={Codec}");
     private readonly ManagedHeadset _managed;
     private readonly IHeadset _headset;
     private readonly AppSettings _settings;
@@ -50,6 +55,12 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private bool _focusOnVoice;
     private int _selectedEqualizerIndex = -1;
     private int _dseeIndex;
+    private int _connectionQualityIndex = -1;
+    private bool _connectionQualityBusy;
+    private int _voiceGuidanceIndex = -1;
+    private int _vptPresetIndex;
+    private int _soundPositionIndex;
+    private bool _spatialCommandInFlight;
     private bool _speakToChat;
     private bool _adaptiveVolume;
     private int _autoPowerOffIndex;
@@ -68,6 +79,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private bool _connectRetried;
     private bool _applying;
     private int _noiseCommandsInFlight;
+
 
     public HeadsetViewModel(
         ManagedHeadset managed,
@@ -237,9 +249,18 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     public bool ShowStatus => !IsConnected;
 
     /// <summary>
-    /// Codec, plus "DSEE Extreme" while DSEE is on, e.g. "AAC · DSEE Extreme".
+    /// WH-XB900N uses regular DSEE; newer models expose DSEE Extreme.
     /// </summary>
-    public string AudioText => string.Join(" · ", new[] { _snapshot.Codec, _dseeIndex == 1 ? "DSEE Extreme" : "" }.Where(part => part.Length > 0));
+    public string DseeName => ModelName == "WH-XB900N" ? "DSEE" : "DSEE Extreme";
+
+    /// <summary>
+    /// Codec plus the configured DSEE setting.
+    /// </summary>
+    public string AudioText => string.Join(" · ", new[]
+    {
+        _snapshot.Codec,
+        _dseeIndex == 1 ? DseeName : "",
+    }.Where(part => part.Length > 0));
 
     public bool AutoConnect
     {
@@ -262,6 +283,12 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     /// Raised by <see cref="ReconnectCommand"/>; the flyout asks the headset manager to reconnect.
     /// </summary>
     public event EventHandler? ReconnectRequested;
+
+    /// <summary>
+    /// Requests a full Windows Bluetooth reconnect for WH-XB900N AAC mode,
+    /// allowing Windows to perform a fresh A2DP codec negotiation.
+    /// </summary>
+    public event EventHandler? AudioReconnectRequested;
 
     /// <summary>
     /// Lets go of the headset until Reconnect (see <see cref="HeadsetManager.Release"/>).
@@ -381,6 +408,11 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             {
                 return;
             }
+            if (!CanEditHeadsetSound)
+            {
+                _ui.Defer(() => OnPropertyChanged(nameof(SelectedEqualizerIndex)));
+                return;
+            }
             var preset = EqualizerPresets[value].Value;
             _ = RunCommandAsync(() => _headset.SetEqualizerPresetAsync(preset), "equalizer");
         }
@@ -394,6 +426,11 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         get => _dseeIndex;
         set
         {
+            if (!_applying && !CanEditHeadsetSound)
+            {
+                OnPropertyChanged(nameof(DseeIndex));
+                return;
+            }
             if (!SetProperty(ref _dseeIndex, value))
             {
                 return;
@@ -408,6 +445,265 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     }
 
     public static IReadOnlyList<string> DseeOptions { get; } = ["Off", "Auto"];
+
+    public bool HasConnectionQualityControl =>
+        ModelName == "WH-XB900N" && Features.ConnectionQuality;
+
+    public static IReadOnlyList<string> ConnectionQualityOptions { get; } =
+        ["SBC", "AAC", "High Quality"];
+
+    private static int ConnectionModeIndexFor(HeadsetSnapshot snapshot)
+    {
+        if (snapshot.Codec == "SBC")
+        {
+            return 0;
+        }
+
+        if (snapshot.Codec == "AAC")
+        {
+            return 1;
+        }
+
+        if (!string.IsNullOrWhiteSpace(snapshot.Codec))
+        {
+            return 2;
+        }
+
+        return snapshot.ConnectionQuality switch
+        {
+            1 => 0,
+            0 => 2,
+            _ => -1,
+        };
+    }
+    public int ConnectionQualityIndex
+    {
+        get => _connectionQualityIndex;
+        set
+        {
+            if (_applying)
+            {
+                if (SetProperty(ref _connectionQualityIndex, value))
+                {
+                    OnPropertyChanged(nameof(CanEditHeadsetSound));
+                }
+                return;
+            }
+
+            if (!HasConnectionQualityControl ||
+                !IsConnected ||
+                _connectionQualityBusy ||
+                value is < 0 or > 2 ||
+                !SetProperty(ref _connectionQualityIndex, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(CanEditHeadsetSound));
+            _ = ApplyConnectionQualityAsync(value);
+        }
+    }
+
+    private async Task ApplyConnectionQualityAsync(int requestedIndex)
+    {
+        _connectionQualityBusy = true;
+        _ui.Post(() => OnPropertyChanged(nameof(CanEditHeadsetSound)));
+
+        try
+        {
+            var highQualityFromAac =
+                requestedIndex == 2 &&
+                string.Equals(_snapshot.Codec, "AAC", StringComparison.Ordinal);
+
+            // aptX-family High Quality does not actually run DSEE on WH-XB900N.
+            // Turn the setting off while we're still on a codec where the command
+            // is meaningful, so the UI and the device do not retain a fake "On".
+            if (requestedIndex == 2 && DseeIndex == 1)
+            {
+                await _headset.SetDseeAsync(false).ConfigureAwait(false);
+
+                _ui.Post(() =>
+                {
+                    _applying = true;
+                    try
+                    {
+                        DseeIndex = 0;
+                    }
+                    finally
+                    {
+                        _applying = false;
+                    }
+                });
+            }
+
+            // High Quality and AAC both use Sony's Quality policy. Re-sending
+            // Quality while AAC is already active does not trigger a useful new
+            // negotiation, so AAC -> High Quality must pass through SBC first.
+            if (highQualityFromAac)
+            {
+                await _headset.SetConnectionQualityAsync(true).ConfigureAwait(false);
+
+                // Wait until the headset actually reports SBC before asking for
+                // Quality again. Hardware captures show this can take several seconds.
+                for (var attempt = 0;
+                     attempt < 100 &&
+                     !string.Equals(_snapshot.Codec, "SBC", StringComparison.Ordinal);
+                     attempt++)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
+                }
+
+                // Do not perform the second A2DP reconfigure immediately.
+            }
+
+            // SBC -> Sony Stability.
+            // AAC / High Quality -> Sony Quality.
+            await _headset.SetConnectionQualityAsync(requestedIndex == 0).ConfigureAwait(false);
+
+            if (requestedIndex == 1)
+            {
+                // AAC uses the hardware-tested full-Windows-reconnect path.
+                AudioReconnectRequested?.Invoke(this, EventArgs.Empty);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogMessages.CommandFailed(_logger, ex, "Bluetooth connection mode", DeviceName);
+            _ui.Post(() =>
+            {
+                ApplySnapshot(_headset.State);
+                ShowError(HeadsetErrorMessages.Describe(ex));
+            });
+        }
+        finally
+        {
+            _connectionQualityBusy = false;
+            _ui.Post(() => OnPropertyChanged(nameof(CanEditHeadsetSound)));
+        }
+    }
+
+    public bool HasLegacySpatialControls => ModelName == "WH-XB900N";
+
+    public bool CanEditHeadsetSound =>
+        !HasConnectionQualityControl ||
+        (IsConnected &&
+         !_connectionQualityBusy &&
+         _snapshot.Codec is "SBC" or "AAC");
+
+    // Compact popup behavior: unavailable WH-XB900N sound effects disappear
+    // in Quality mode instead of looking usable.
+    public bool ShowPopupEqualizer => Features.Equalizer;
+    public bool ShowPopupDsee => Features.Dsee;
+    public bool ShowPopupSoundSection =>
+        (ShowPopupEqualizer || ShowPopupDsee) &&
+        (!HasConnectionQualityControl ||
+         string.IsNullOrEmpty(_snapshot.Codec) ||
+         _snapshot.Codec is "SBC" or "AAC");
+
+
+    public static IReadOnlyList<string> VptPresetOptions { get; } =
+        ["Off", "Outdoor Stage", "Arena", "Concert Hall", "Club"];
+
+    public static IReadOnlyList<string> SoundPositionOptions { get; } =
+        ["Normal", "Left", "Right", "Front", "Back Left", "Back Right"];
+
+    private static readonly int[] SoundPositionCodes = [0x00, 0x01, 0x02, 0x03, 0x11, 0x12];
+
+    public int VptPresetIndex
+    {
+        get => _vptPresetIndex;
+        set
+        {
+            if (!HasLegacySpatialControls ||
+                !CanEditHeadsetSound ||
+                _spatialCommandInFlight ||
+                value is < 0 or > 4 ||
+                !SetProperty(ref _vptPresetIndex, value))
+            {
+                return;
+            }
+
+            _ = ApplySpatialAsync(() => _headset.SetVptAsync(value), resetPosition: value != 0);
+        }
+    }
+
+    public int SoundPositionIndex
+    {
+        get => _soundPositionIndex;
+        set
+        {
+            if (!HasLegacySpatialControls ||
+                !CanEditHeadsetSound ||
+                _spatialCommandInFlight ||
+                value is < 0 or > 5 ||
+                !SetProperty(ref _soundPositionIndex, value))
+            {
+                return;
+            }
+
+            _ = ApplySpatialAsync(
+                () => _headset.SetSoundPositionAsync(SoundPositionCodes[value]),
+                resetVpt: value != 0);
+        }
+    }
+
+    private async Task ApplySpatialAsync(
+        Func<Task> apply,
+        bool resetPosition = false,
+        bool resetVpt = false)
+    {
+        _spatialCommandInFlight = true;
+        try
+        {
+            await apply().ConfigureAwait(false);
+            _ui.Post(() =>
+            {
+                if (resetPosition)
+                {
+                    _soundPositionIndex = 0;
+                    OnPropertyChanged(nameof(SoundPositionIndex));
+                }
+                if (resetVpt)
+                {
+                    _vptPresetIndex = 0;
+                    OnPropertyChanged(nameof(VptPresetIndex));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            LogMessages.CommandFailed(_logger, ex, "sound effect", DeviceName);
+            _ui.Post(() => ShowError(HeadsetErrorMessages.Describe(ex)));
+        }
+        finally
+        {
+            _spatialCommandInFlight = false;
+        }
+    }
+
+    public bool HasVoiceGuidanceControl => ModelName == "WH-XB900N";
+
+    public static IReadOnlyList<string> VoiceGuidanceOptions { get; } = ["Off", "On"];
+
+    public int VoiceGuidanceIndex
+    {
+        get => _voiceGuidanceIndex;
+        set
+        {
+            if (!HasVoiceGuidanceControl ||
+                !IsConnected ||
+                value is < 0 or > 1 ||
+                !SetProperty(ref _voiceGuidanceIndex, value) ||
+                _applying)
+            {
+                return;
+            }
+
+            _ = RunCommandAsync(() => _headset.SetVoiceGuidanceAsync(value), "voice guidance");
+        }
+    }
+
+    public bool CanPowerOffFromPopup => ModelName != "WH-XB900N";
 
     public double ClearBass
     {
@@ -515,8 +811,14 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         }
     }
 
-    public static IReadOnlyList<string> AutoPowerOffOptions { get; } =
+    private static IReadOnlyList<string> StandardAutoPowerOffOptions { get; } =
         ["Off", "After 5 minutes", "After 30 minutes", "After 1 hour", "After 3 hours", "When taken off"];
+
+    private static IReadOnlyList<string> WhXb900nAutoPowerOffOptions { get; } =
+        ["Off", "After 5 minutes", "After 30 minutes", "After 1 hour", "After 3 hours"];
+
+    public IReadOnlyList<string> AutoPowerOffOptions =>
+        ModelName == "WH-XB900N" ? WhXb900nAutoPowerOffOptions : StandardAutoPowerOffOptions;
 
     // =========================================================================
     // ERRORS
@@ -635,6 +937,10 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             return;
         }
         OnPropertyChanged(nameof(IsConnected));
+        OnPropertyChanged(nameof(CanEditHeadsetSound));
+        OnPropertyChanged(nameof(ShowPopupEqualizer));
+        OnPropertyChanged(nameof(ShowPopupDsee));
+        OnPropertyChanged(nameof(ShowPopupSoundSection));
         OnPropertyChanged(nameof(IsConnecting));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(PickerStatusText));
@@ -685,6 +991,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     private void ApplySnapshot(HeadsetSnapshot snapshot)
     {
+        var previousCodec = _snapshot.Codec;
+        var previousConnectionQuality = _snapshot.ConnectionQuality;
         var skipNoise = _noiseThrottler.HasPending || Volatile.Read(ref _noiseCommandsInFlight) > 0;
 
         // Taking an earbud out briefly reports neither side; keep the last levels until the
@@ -730,7 +1038,18 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             Band3 = snapshot.Equalizer.Bands[2];
             Band4 = snapshot.Equalizer.Bands[3];
             Band5 = snapshot.Equalizer.Bands[4];
-            DseeIndex = snapshot.Dsee ? 1 : 0;
+            DseeIndex =
+                HasConnectionQualityControl &&
+                !string.IsNullOrEmpty(snapshot.Codec) &&
+                snapshot.Codec != "SBC" &&
+                snapshot.Codec != "AAC"
+                    ? 0
+                    : snapshot.Dsee ? 1 : 0;
+            ConnectionQualityIndex = ConnectionModeIndexFor(snapshot);
+            if (snapshot.VoiceGuidance is >= 0 and <= 1)
+            {
+                VoiceGuidanceIndex = snapshot.VoiceGuidance;
+            }
             SpeakToChat = snapshot.SpeakToChat;
             AdaptiveVolume = snapshot.AdaptiveVolume;
             AutoPowerOffIndex = snapshot.AutoPowerOff;
@@ -755,9 +1074,29 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(MainBatteryGlyph));
         OnPropertyChanged(nameof(Firmware));
         OnPropertyChanged(nameof(Codec));
+        OnPropertyChanged(nameof(ShowPopupSoundSection));
+        OnPropertyChanged(nameof(CanEditHeadsetSound));
+        OnPropertyChanged(nameof(ShowPopupEqualizer));
+        OnPropertyChanged(nameof(ShowPopupDsee));
+        OnPropertyChanged(nameof(ShowPopupSoundSection));
         OnPropertyChanged(nameof(AudioText));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(PickerStatusText));
+
+        if (ModelName == "WH-XB900N" &&
+            (snapshot.ConnectionQuality != previousConnectionQuality ||
+             !string.Equals(snapshot.Codec, previousCodec, StringComparison.Ordinal)))
+        {
+            var connectionMode = snapshot.ConnectionQuality switch
+            {
+                0 => "Priority on Quality",
+                1 => "Priority on Stability",
+                _ => "Unknown",
+            };
+            var codec = string.IsNullOrWhiteSpace(snapshot.Codec) ? "Unknown" : snapshot.Codec;
+
+            LogWhXb900nState(_logger, connectionMode, codec, null);
+        }
 
         _lowBattery.Update(Id, DeviceName, snapshot.Battery);
     }
@@ -879,6 +1218,11 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     private Task ApplyCustomEqualizerAsync()
     {
+        if (!CanEditHeadsetSound)
+        {
+            return Task.CompletedTask;
+        }
+
         var setting = new EqualizerSetting(
             EqualizerSetting.ManualPreset,
             (int)_clearBass,

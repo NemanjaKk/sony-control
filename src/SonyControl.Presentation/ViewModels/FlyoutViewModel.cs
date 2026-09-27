@@ -159,6 +159,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             Headsets.Remove(viewModel);
             viewModel.AutoConnectChanged -= OnAutoConnectChanged;
             viewModel.ReconnectRequested -= OnReconnectRequested;
+            viewModel.AudioReconnectRequested -= OnAudioReconnectRequested;
             viewModel.ConnectRequested -= OnConnectRequested;
             viewModel.Dispose();
         }
@@ -196,6 +197,41 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async void OnAudioReconnectRequested(object? sender, EventArgs e)
+    {
+        if (sender is not HeadsetViewModel headset || headset.ModelName != "WH-XB900N")
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _bluetoothAudio.DisconnectAsync(headset.Id).ConfigureAwait(true))
+            {
+                return;
+            }
+
+            // The successful manual AAC path included a real Windows device
+            // disconnect. Wait for HeadsetManager to observe that same state.
+            for (var attempt = 0; attempt < 50 && headset.IsWindowsConnected; attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(true);
+            }
+
+            if (headset.IsWindowsConnected)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500)).ConfigureAwait(true);
+            _ = await _bluetoothAudio.ConnectAsync(headset.Id).ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            // Best effort. Native logging records whether Windows
+            // accepted the full disconnect and subsequent audio reconnect.
+        }
+    }
     // Connect asks Windows for the headset's audio; the connect then arrives like any other
     // Windows connect, and the headset view model gives up on its own if it never does
     private async void OnConnectRequested(object? sender, EventArgs e)
@@ -241,6 +277,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         var viewModel = _createHeadsetViewModel(headset);
         viewModel.AutoConnectChanged += OnAutoConnectChanged;
         viewModel.ReconnectRequested += OnReconnectRequested;
+        viewModel.AudioReconnectRequested += OnAudioReconnectRequested;
         viewModel.ConnectRequested += OnConnectRequested;
         Headsets.Add(viewModel);
     }

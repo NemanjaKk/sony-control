@@ -62,6 +62,7 @@ public sealed record HeadsetFeatures(
     bool Equalizer,
     bool ClearBass,
     bool Dsee,
+    bool ConnectionQuality,
     bool SpeakToChat,
     bool AdaptiveVolume,
     bool AutoPowerOff,
@@ -80,7 +81,9 @@ public sealed record HeadsetSnapshot(
     bool AdaptiveVolume,
     int AutoPowerOff,
     string Firmware,
-    string Codec)
+    string Codec,
+    int ConnectionQuality = -1,
+    int VoiceGuidance = -1)
 {
     /// <summary>
     /// Devices connected to the headset (multipoint), when it can switch playback between

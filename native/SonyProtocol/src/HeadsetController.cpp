@@ -31,9 +31,13 @@ DeviceCapabilities unknownModelCapabilities() noexcept {
 HeadsetController::HeadsetController(std::unique_ptr<transport::ITransport> transport, std::string_view deviceName)
     : _profile(DeviceProfileRegistry::getProfileForDevice(deviceName)),
       _session(std::make_unique<SonyProtocolSession>(std::move(transport))) {
-    // Unknown models start on V2 and fall back to V1 during connect.
+    // Unknown models start on V2 and fall back to V1 during connect. WH-XB900N
+    // also starts on V2 because firmware 4.5.2 expects the common init handshake
+    // before its legacy V1 command set is used.
     if (_profile.model == SonyModel::Unknown) {
         _profile.capabilities = unknownModelCapabilities();
+        createProtocol(ProtocolGeneration::V2);
+    } else if (_profile.model == SonyModel::WHXB900N) {
         createProtocol(ProtocolGeneration::V2);
     } else {
         createProtocol(_profile.protocol == SonyProtocolVersion::V2 ? ProtocolGeneration::V2 : ProtocolGeneration::V1);
@@ -68,10 +72,7 @@ void HeadsetController::connect(const transport::DeviceAddress& address) {
 
     try {
         throwIfDisconnectedSince(generation);
-        _protocol->initDevice();
-        if (_profile.model == SonyModel::Unknown) {
-            detectGeneration();
-        }
+        initializeProtocolForConnection(generation);
         readInitialState();
         throwIfDisconnectedSince(generation);
 
@@ -156,9 +157,42 @@ void HeadsetController::powerOff() {
     }
 }
 
+void HeadsetController::setConnectionQuality(bool prioritizeStableConnection) {
+    if (!_profile.capabilities.connectionQuality) {
+        throw SonyException(SonyErrorCode::Unsupported, "Connection quality is not supported by this headset");
+    }
+    command([&] { _protocol->setConnectionQuality(prioritizeStableConnection); });
+    updateState([&](DeviceState& state) { state.connectionQuality = prioritizeStableConnection ? 1 : 0; });
+}
+
 void HeadsetController::setDsee(bool enabled) {
     command([&] { _protocol->setDsee(enabled); });
     updateState([&](DeviceState& state) { state.dsee = enabled; });
+}
+
+void HeadsetController::setVpt(int preset) {
+    auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+    if (_profile.model != SonyModel::WHXB900N || !v1) {
+        throw SonyException(SonyErrorCode::Unsupported, "VPT is available for WH-XB900N V1 only");
+    }
+    command([&] { v1->setVpt(preset); });
+}
+
+void HeadsetController::setSoundPosition(int preset) {
+    auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+    if (_profile.model != SonyModel::WHXB900N || !v1) {
+        throw SonyException(SonyErrorCode::Unsupported, "Sound position is available for WH-XB900N V1 only");
+    }
+    command([&] { v1->setSoundPosition(preset); });
+}
+
+void HeadsetController::setVoiceGuidance(int value) {
+    auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+    if (_profile.model != SonyModel::WHXB900N || !v1) {
+        throw SonyException(SonyErrorCode::Unsupported, "Voice guidance is available for WH-XB900N V1 only");
+    }
+    command([&] { v1->setVoiceGuidance(value); });
+    updateState([&](DeviceState& state) { state.voiceGuidance = value; });
 }
 
 void HeadsetController::setSpeakToChat(bool enabled) {
@@ -248,11 +282,31 @@ void HeadsetController::readOptional(std::string_view feature, bool supported, R
     }
 }
 
+void HeadsetController::initializeProtocolForConnection(uint64_t disconnectGeneration) {
+    if (_profile.model == SonyModel::WHXB900N) {
+        // Firmware 4.5.2 expects the common Sony init handshake before accepting
+        // its legacy V1 command family. A successful connection leaves the active
+        // protocol on V1, so recreate V2 first on every reconnect.
+        createProtocol(ProtocolGeneration::V2);
+        _protocol->initDevice();
+        throwIfDisconnectedSince(disconnectGeneration);
+
+        createProtocol(ProtocolGeneration::V1);
+        _protocol->initDevice();
+        return;
+    }
+
+    _protocol->initDevice();
+    if (_profile.model == SonyModel::Unknown) {
+        detectGeneration();
+    }
+}
+
 void HeadsetController::createProtocol(ProtocolGeneration generation) {
     if (generation == ProtocolGeneration::V2) {
         _protocol = std::make_unique<ProtocolV2>(*_session, _profile.capabilities.dualBattery);
     } else {
-        _protocol = std::make_unique<ProtocolV1>(*_session);
+        _protocol = std::make_unique<ProtocolV1>(*_session, _profile.model == SonyModel::WHXB900N);
     }
     _generation.store(generation);
 }
@@ -277,6 +331,17 @@ void HeadsetController::readInitialState() {
     initial.noiseControl = withRetry([&] { return _protocol->getNoiseControl(); });
 
     readOptional("equalizer", capabilities.equalizer, [&] { initial.equalizer = _protocol->getEqualizer(); });
+    readOptional("connection quality", capabilities.connectionQuality, [&] {
+        initial.connectionQuality = _protocol->getConnectionQuality();
+    });
+    if (_profile.model == SonyModel::WHXB900N) {
+        readOptional("voice guidance", true, [&] {
+            auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+            if (v1) {
+                initial.voiceGuidance = v1->getVoiceGuidance();
+            }
+        });
+    }
     readOptional("DSEE", capabilities.dsee, [&] { initial.dsee = _protocol->getDsee(); });
     readOptional("Speak-to-Chat", capabilities.speakToChat, [&] { initial.speakToChat = _protocol->getSpeakToChat(); });
     readOptional("adaptive volume", capabilities.adaptiveVolume, [&] { initial.adaptiveVolume = _protocol->getAdaptiveVolume(); });

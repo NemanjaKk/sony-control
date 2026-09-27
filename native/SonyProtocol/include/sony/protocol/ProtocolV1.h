@@ -12,7 +12,7 @@ namespace sony::protocol {
 // 0x10/0x11 instead.
 class ProtocolV1 : public IProtocol {
 public:
-    explicit ProtocolV1(SonyProtocolSession& session);
+    explicit ProtocolV1(SonyProtocolSession& session, bool whXb900nLayout = false);
     ~ProtocolV1() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {
@@ -34,6 +34,8 @@ public:
     void setDsee(bool enabled) override;
     void powerOff() override;
 
+    int getConnectionQuality() override;
+    void setConnectionQuality(bool prioritizeStableConnection) override;
     std::string getFirmwareVersion() override;
     std::string getCodec() override;
 
@@ -49,9 +51,13 @@ public:
     // V1-specific surround & positioning commands
     void setVpt(int preset);
     void setSoundPosition(int preset);
+    int getVoiceGuidance();
+    void setVoiceGuidance(int value);
 
 private:
     SonyProtocolSession& _session;
+    bool _whXb900nLayout = false;
+    uint8_t _whXb900nLastTimedAutoPowerOffCode = 0x00;
 };
 
 } // namespace sony::protocol

@@ -17,9 +17,11 @@ internal sealed class FakeHeadset : IHeadset
         Features = features ?? Xm6Features;
     }
 
-    public static HeadsetFeatures Xm6Features { get; } = new(true, true, true, true, true, true, true, true, true, true, true, true);
+    public static HeadsetFeatures Xm6Features { get; } = new(true, true, true, true, true, true, true, false, true, true, true, true, true);
 
-    public static HeadsetFeatures Xm4Features { get; } = new(false, true, true, true, true, true, false, false, false, false, true, true);
+    public static HeadsetFeatures Xm4Features { get; } = new(false, true, true, true, true, true, false, false, false, false, false, true, true);
+
+    public static HeadsetFeatures Xb900nFeatures { get; } = new(false, true, true, true, true, true, true, true, false, false, true, true, true);
 
     public event EventHandler<HeadsetSnapshot>? StateChanged;
 
@@ -125,7 +127,17 @@ internal sealed class FakeHeadset : IHeadset
 
     public Task PowerOffAsync() => Command("power off", state => state);
 
+    public Task SetConnectionQualityAsync(bool prioritizeStableConnection) =>
+        Command(("connectionQuality", prioritizeStableConnection), state => state with { ConnectionQuality = prioritizeStableConnection ? 1 : 0 });
+
     public Task SetDseeAsync(bool enabled) => Command(("dsee", enabled), state => state with { Dsee = enabled });
+
+    public Task SetVptAsync(int preset) => Command(("vpt", preset), state => state);
+
+    public Task SetSoundPositionAsync(int position) => Command(("soundPosition", position), state => state);
+
+    public Task SetVoiceGuidanceAsync(int value) =>
+        Command(("voiceGuidance", value), state => state with { VoiceGuidance = value });
 
     public Task SetSpeakToChatAsync(bool enabled) => Command(("speakToChat", enabled), state => state with { SpeakToChat = enabled });
 

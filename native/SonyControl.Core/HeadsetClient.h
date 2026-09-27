@@ -17,6 +17,7 @@ struct HeadsetClient : HeadsetClientT<HeadsetClient> {
     static void SetDebugLogging(bool enabled);
     static com_array<Core::EqualizerPresetInfo> GetEqualizerPresets();
     static Windows::Foundation::IAsyncOperation<bool> ConnectAudioAsync(hstring bluetoothAddress);
+    static Windows::Foundation::IAsyncOperation<bool> DisconnectAudioAsync(hstring bluetoothAddress);
 
     hstring DeviceName() const;
     hstring ModelName() const;
@@ -32,7 +33,11 @@ struct HeadsetClient : HeadsetClientT<HeadsetClient> {
     Windows::Foundation::IAsyncAction SetNoiseControlAsync(Core::NoiseControlInfo value);
     Windows::Foundation::IAsyncAction SetEqualizerPresetAsync(int32_t preset);
     Windows::Foundation::IAsyncAction SetEqualizerCustomAsync(Core::EqualizerInfo value);
+    Windows::Foundation::IAsyncAction SetConnectionQualityAsync(bool prioritizeStableConnection);
     Windows::Foundation::IAsyncAction SetDseeAsync(bool enabled);
+    Windows::Foundation::IAsyncAction SetVptAsync(int32_t preset);
+    Windows::Foundation::IAsyncAction SetSoundPositionAsync(int32_t position);
+    Windows::Foundation::IAsyncAction SetVoiceGuidanceAsync(int32_t value);
     Windows::Foundation::IAsyncAction PowerOffAsync();
     Windows::Foundation::IAsyncAction SetSpeakToChatAsync(bool enabled);
     Windows::Foundation::IAsyncAction SetAdaptiveVolumeAsync(bool enabled);

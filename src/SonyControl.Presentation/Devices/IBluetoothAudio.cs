@@ -15,6 +15,11 @@ public interface IBluetoothAudio
     /// connection shows up as a Windows connect like any other.
     /// </returns>
     Task<bool> ConnectAsync(string bluetoothAddress);
+
+    /// <summary>
+    /// Asks Windows to disconnect the headset's Bluetooth audio.
+    /// </summary>
+    Task<bool> DisconnectAsync(string bluetoothAddress);
 }
 
 /// <summary>
@@ -23,4 +28,7 @@ public interface IBluetoothAudio
 public sealed class WindowsBluetoothAudio : IBluetoothAudio
 {
     public Task<bool> ConnectAsync(string bluetoothAddress) => Core.HeadsetClient.ConnectAudioAsync(bluetoothAddress).AsTask();
+
+    public Task<bool> DisconnectAsync(string bluetoothAddress) =>
+        Core.HeadsetClient.DisconnectAudioAsync(bluetoothAddress).AsTask();
 }

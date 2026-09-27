@@ -23,6 +23,8 @@ struct DeviceState {
     EqualizerState equalizer;
 
     bool dsee{false};
+    int connectionQuality{-1};  // -1 unknown, 0 sound quality, 1 stable connection
+    int voiceGuidance{-1};      // -1 unknown, 0 off, 1 on
 
     std::string firmware;
     std::string codec;

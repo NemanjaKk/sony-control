@@ -38,7 +38,15 @@ public interface IHeadset : IDisposable
 
     Task SetEqualizerCustomAsync(EqualizerSetting value);
 
+    Task SetConnectionQualityAsync(bool prioritizeStableConnection);
+
     Task SetDseeAsync(bool enabled);
+
+    Task SetVptAsync(int preset);
+
+    Task SetSoundPositionAsync(int position);
+
+    Task SetVoiceGuidanceAsync(int value);
 
     /// <summary>
     /// Turns the headset off. The control link drops afterwards.

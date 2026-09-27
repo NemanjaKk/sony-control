@@ -60,7 +60,16 @@ public sealed class WinRtHeadset : IHeadset
             value.Bands[3],
             value.Bands[4])).AsTask();
 
+    public Task SetConnectionQualityAsync(bool prioritizeStableConnection) =>
+        _client.SetConnectionQualityAsync(prioritizeStableConnection).AsTask();
+
     public Task SetDseeAsync(bool enabled) => _client.SetDseeAsync(enabled).AsTask();
+
+    public Task SetVptAsync(int preset) => _client.SetVptAsync(preset).AsTask();
+
+    public Task SetSoundPositionAsync(int position) => _client.SetSoundPositionAsync(position).AsTask();
+
+    public Task SetVoiceGuidanceAsync(int value) => _client.SetVoiceGuidanceAsync(value).AsTask();
 
     public Task PowerOffAsync() => _client.PowerOffAsync().AsTask();
 
@@ -91,7 +100,9 @@ public sealed class WinRtHeadset : IHeadset
         state.AdaptiveVolume,
         state.AutoPowerOff,
         state.Firmware ?? "",
-        state.Codec ?? "");
+        state.Codec ?? "",
+        state.ConnectionQuality,
+        state.VoiceGuidance);
 
     private static int? Known(int level) => level < 0 ? null : level;
 
@@ -118,6 +129,7 @@ public sealed class WinRtHeadset : IHeadset
         capabilities.Equalizer,
         capabilities.ClearBass,
         capabilities.Dsee,
+        capabilities.ConnectionQuality,
         capabilities.SpeakToChat,
         capabilities.AdaptiveVolume,
         capabilities.AutoPowerOff,

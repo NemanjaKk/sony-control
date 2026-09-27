@@ -126,6 +126,70 @@ public sealed class HeadsetViewModelTests
     }
 
     [TestMethod]
+    public void WhXb900nUsesRegularDseeAndModelSpecificControls()
+    {
+        using var headset = new FakeHeadset("WH-XB900N", FakeHeadset.Xb900nFeatures)
+        {
+            State = HeadsetSnapshot.Empty with
+            {
+                Codec = "SBC",
+                ConnectionQuality = 1,
+                VoiceGuidance = 1,
+            },
+        };
+        var managed = new ManagedHeadset("device-xb900n", "AC:80:0A:00:09:00", "WH-XB900N", headset)
+        {
+            ConnectionState = HeadsetConnectionState.Connected,
+            IsWindowsConnected = true,
+        };
+        using var viewModel = new HeadsetViewModel(
+            managed,
+            _settings,
+            new LowBatteryMonitor(_settings, _notifications),
+            _time,
+            NullLogger.Instance);
+
+        Assert.AreEqual("DSEE", viewModel.DseeName);
+        Assert.IsTrue(viewModel.HasConnectionQualityControl);
+        Assert.IsTrue(viewModel.HasLegacySpatialControls);
+        Assert.IsTrue(viewModel.HasVoiceGuidanceControl);
+        Assert.IsFalse(viewModel.CanPowerOffFromPopup);
+        Assert.AreEqual(0, viewModel.ConnectionQualityIndex);
+        Assert.AreEqual("SBC", HeadsetViewModel.ConnectionQualityOptions[0]);
+        Assert.AreEqual("AAC", HeadsetViewModel.ConnectionQualityOptions[1]);
+        Assert.AreEqual("High Quality", HeadsetViewModel.ConnectionQualityOptions[2]);
+        Assert.IsTrue(viewModel.CanEditHeadsetSound);
+        Assert.AreEqual(1, viewModel.VoiceGuidanceIndex);
+    }
+
+    [TestMethod]
+    public void WhXb900nDisablesSoundControlsOutsideSbcAndAac()
+    {
+        using var headset = new FakeHeadset("WH-XB900N", FakeHeadset.Xb900nFeatures)
+        {
+            State = HeadsetSnapshot.Empty with
+            {
+                Codec = "aptX",
+                ConnectionQuality = 0,
+                VoiceGuidance = 1,
+            },
+        };
+        var managed = new ManagedHeadset("device-xb900n", "AC:80:0A:00:09:00", "WH-XB900N", headset)
+        {
+            ConnectionState = HeadsetConnectionState.Connected,
+            IsWindowsConnected = true,
+        };
+        using var viewModel = new HeadsetViewModel(
+            managed,
+            _settings,
+            new LowBatteryMonitor(_settings, _notifications),
+            _time,
+            NullLogger.Instance);
+
+        Assert.AreEqual(2, viewModel.ConnectionQualityIndex);
+        Assert.IsFalse(viewModel.CanEditHeadsetSound);
+    }
+    [TestMethod]
     public void StatusLineShowsOnlyWhenNotConnected()
     {
         Assert.IsFalse(_viewModel.ShowStatus);

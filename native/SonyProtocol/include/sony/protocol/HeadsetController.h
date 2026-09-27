@@ -49,7 +49,11 @@ public:
     void setNoiseControl(const NoiseControlState& value);
     void setEqualizerPreset(int preset);
     void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands);
+    void setConnectionQuality(bool prioritizeStableConnection);
     void setDsee(bool enabled);
+    void setVpt(int preset);
+    void setSoundPosition(int preset);
+    void setVoiceGuidance(int value);
     // Turns the headset off. The link drops afterwards, like any other disconnect.
     void powerOff();
     void setSpeakToChat(bool enabled);
@@ -79,6 +83,7 @@ private:
     void dropLink() noexcept;
 
     void throwIfDisconnectedSince(uint64_t generation) const;
+    void initializeProtocolForConnection(uint64_t disconnectGeneration);
     void createProtocol(ProtocolGeneration generation);
     void detectGeneration();
     void readInitialState();

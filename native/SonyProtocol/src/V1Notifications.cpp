@@ -1,5 +1,6 @@
 #include "sony/protocol/V1Notifications.h"
 #include "sony/protocol/EqualizerPresets.h"
+#include "ProtocolHelpers.h"
 
 namespace sony::protocol {
 
@@ -67,6 +68,23 @@ bool applyV1Notification(std::span<const uint8_t> payload, DeviceState& state) {
         case 0x57:
         case 0x59:
             return applyEqualizer(payload, state);
+        case 0x1B: {
+            // Live Bluetooth codec notification:
+            // 1B 00 <codec identifier>
+            if (payload.size() < 3 || payload[1] != 0x00) {
+                return false;
+            }
+
+            const std::string codec =
+                detail::codecName(payload[2]);
+
+            if (codec.empty()) {
+                return false;
+            }
+
+            state.codec = codec;
+            return true;
+        }
         default:
             return false;
     }

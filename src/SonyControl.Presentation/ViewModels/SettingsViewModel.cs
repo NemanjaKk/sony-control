@@ -170,10 +170,14 @@ public sealed class SettingsViewModel : ObservableObject
     public bool NoHeadset => SelectedHeadset is null;
 
     /// <summary>
-    /// The selected headset has nothing for the System page (no auto power-off, no adaptive volume).
+    /// The selected headset has nothing for the System page.
     /// </summary>
     public bool NoSystemOptions =>
-        SelectedHeadset is { Features: { AutoPowerOff: false, AdaptiveVolume: false } };
+        SelectedHeadset is { } headset &&
+        !headset.Features.AutoPowerOff &&
+        !headset.Features.AdaptiveVolume &&
+        !headset.HasVoiceGuidanceControl &&
+        !headset.HasConnectionQualityControl;
 
     /// <summary>
     /// Selects the headset the flyout is showing, so settings open on the same headphones.
