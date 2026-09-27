@@ -1,7 +1,6 @@
 #include "FakeHeadset.h"
 
 #include "sony/protocol/HeadsetController.h"
-#include "sony/protocol/V2Layouts.h"
 
 #include <gtest/gtest.h>
 
@@ -16,13 +15,11 @@ using sony::SonyErrorCode;
 using sony::SonyException;
 using sony::protocol::DataType;
 using sony::protocol::DeviceState;
-using sony::protocol::EqualizerState;
 using sony::protocol::FrameCodec;
 using sony::protocol::HeadsetController;
 using sony::protocol::NoiseControlMode;
 using sony::protocol::NoiseControlState;
 using sony::protocol::SonyFrame;
-using sony::protocol::parseEqualizer;
 using sony::test::FakeHeadset;
 using sony::test::kTestAddress;
 using sony::test::Payload;
@@ -418,17 +415,10 @@ TEST_F(Xm6Connection, ConnectSkipsPlaybackWhenSwitchingIsUnsupported) {
     EXPECT_NE(fake->requests().back(), (Payload{0x36, 0x02}));
 }
 
-// The Sony Headphones Connect app can leave a custom curve in any of six memory slots
-// (0xa0-0xa5), not just 0xa0. A headset last touched by that app instead of this one
-// reported one of the other five and the picker showed nothing at all, even with a
-// perfectly good curve behind it, so these fold onto Manual (0xa0) at parse time.
-TEST(EqualizerLayout, FoldsOtherCustomSlotsIntoManual) {
-    EqualizerState state;
-    // <op> 00 <preset 0xa3, Custom 4> <count 06> <bass+10> <b1..b5 +10>
-    const Payload payload{0x57, 0x00, 0xa3, 0x06, 0x0a, 0x00, 0x05, 0x0a, 0x0f, 0x14};
+// A headset left on "Custom 4" (0xa3) still folds to Manual (0xa0) on connect.
+TEST_F(Xm6Connection, ConnectFoldsOtherCustomSlotsIntoManual) {
+    scriptXm6Connect(*headset, /*answerHandshake=*/true, /*switching=*/true, /*eqPreset=*/0xa3);
+    controller->connect(kTestAddress);
 
-    EXPECT_TRUE(parseEqualizer(payload, state));
-    EXPECT_EQ(state.preset, 0xa0);
-    EXPECT_EQ(state.clearBass, 0);
-    EXPECT_EQ(state.bands, (std::array<int, 5>{-10, -5, 0, 5, 10}));
+    EXPECT_EQ(controller->state().equalizer.preset, 0xa0);
 }

@@ -195,7 +195,8 @@ inline Payload xm6PlaybackDevices(uint8_t playingSlot, uint8_t command = 0x37) {
     return payload;
 }
 
-inline void scriptXm6Connect(FakeHeadset& headset, bool answerHandshake = true, bool switching = true) {
+inline void scriptXm6Connect(FakeHeadset& headset, bool answerHandshake = true, bool switching = true,
+                              uint8_t eqPreset = 0x10) {
     if (answerHandshake) {
         headset.reply({{0x01, 0x00, 0x03, 0x00, 0x30, 0x02, 0x00, 0x00}});          // 00 00 handshake
     } else {
@@ -204,7 +205,7 @@ inline void scriptXm6Connect(FakeHeadset& headset, bool answerHandshake = true, 
     headset.reply({{0x23, 0x09, 85, 0x00, 82, 0x00, 0x64, 0x64}});                  // 22 09 left 85, right 82
     headset.reply({{0x23, 0x0a, 95, 0x00, 0x1e}});                                  // 22 0a case 95
     headset.reply({{0x67, 0x19, 0x01, 0x01, 0x01, 0x01, 0x08, 0x00, 0x00}});        // 66 19 ambient 8, voice on
-    headset.reply({{0x57, 0x00, 0x10, 0x0a, 0x06, 0x06, 0x07, 0x08, 0x06, 0x05, 0x06, 0x06, 0x06, 0x06}}); // 56 00 Bright, 10 bands
+    headset.reply({{0x57, 0x00, eqPreset, 0x0a, 0x06, 0x06, 0x07, 0x08, 0x06, 0x05, 0x06, 0x06, 0x06, 0x06}}); // 56 00 <preset>, 10 bands
     headset.reply({{0xe7, 0x01, 0x01}});                                            // e6 01 DSEE on
     headset.reply({{0xf7, 0x0c, 0x00, 0x01}});                                      // f6 0c Speak-to-Chat on (inverted)
     headset.reply({{0x27, 0x05, 0x10, 0x00}});                                      // 26 05 when taken off (index 5)

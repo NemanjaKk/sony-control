@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SemanticTypes.h"
-#include "sony/protocol/EqualizerPresets.h"
+#include "EqualizerPresets.h"
 
 #include <cstdint>
 #include <optional>
