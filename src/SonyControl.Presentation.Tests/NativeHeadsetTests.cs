@@ -7,6 +7,7 @@ namespace SonyControl.Presentation.Tests;
 /// Crosses the real WinRT boundary into SonyControl.Core.dll, the same way the app does.
 /// </summary>
 [TestClass]
+[DoNotParallelize]
 public sealed class HeadsetClientActivationTests
 {
     [TestMethod]
@@ -20,6 +21,23 @@ public sealed class HeadsetClientActivationTests
         Assert.IsTrue(client.Capabilities.DualBattery);
         Assert.IsTrue(client.Capabilities.Dsee);
         Assert.IsFalse(client.IsConnected);
+    }
+
+    [TestMethod]
+    public void ResolvesWhXb900nProfile()
+    {
+        using var client = new Core.HeadsetClient("WH-XB900N");
+
+        Assert.AreEqual("WH-XB900N", client.ModelName);
+        Assert.IsTrue(client.IsKnownModel);
+        Assert.AreEqual(Core.ProtocolGeneration.V2, client.Protocol);
+        Assert.IsTrue(client.Capabilities.NoiseCancelling);
+        Assert.IsTrue(client.Capabilities.AmbientSound);
+        Assert.IsTrue(client.Capabilities.Equalizer);
+        Assert.IsTrue(client.Capabilities.Dsee);
+        Assert.IsTrue(client.Capabilities.ConnectionQuality);
+        Assert.IsTrue(client.Capabilities.AutoPowerOff);
+        Assert.IsFalse(client.Capabilities.SpeakToChat);
     }
 
     [TestMethod]
@@ -76,6 +94,17 @@ public sealed class HeadsetClientActivationTests
     }
 
     [TestMethod]
+    public void Xb900nStateFieldsCrossTheWinRtBoundary()
+    {
+        var state = new Core.HeadsetState { ConnectionQuality = 1, VoiceGuidance = 0 };
+
+        var snapshot = WinRtHeadset.ToSnapshot(state);
+
+        Assert.AreEqual(1, snapshot.ConnectionQuality);
+        Assert.AreEqual(0, snapshot.VoiceGuidance);
+    }
+
+    [TestMethod]
     public void SingleBatteryHeadphonesKeepMainLevel()
     {
         var state = new Core.HeadsetState { Battery = new Core.BatteryInfo { Main = 15, Left = -1, Right = -1, CaseBattery = -1 } };
@@ -98,6 +127,7 @@ public sealed class HeadsetClientActivationTests
 /// is set, e.g. <c>$env:SONY_TEST_XM6_ADDRESS = "AC:80:0A:12:34:56"</c>.
 /// </summary>
 [TestClass]
+[DoNotParallelize]
 public sealed class HardwareTests
 {
     [TestMethod]
@@ -108,6 +138,11 @@ public sealed class HardwareTests
     [TestCategory("Hardware")]
     [TestCategory("XM4")]
     public async Task Wh1000Xm4RoundTrip() => await RoundTripAsync("WH-1000XM4", "SONY_TEST_XM4_ADDRESS");
+
+    [TestMethod]
+    [TestCategory("Hardware")]
+    [TestCategory("XB900N")]
+    public async Task WhXb900nRoundTrip() => await RoundTripAsync("WH-XB900N", "SONY_TEST_XB900N_ADDRESS");
 
     /// <summary>
     /// Native events (state changes and dropped links) must cross into managed code, or the app

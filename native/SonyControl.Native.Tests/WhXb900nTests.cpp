@@ -4,21 +4,27 @@
 
 #include "sony/protocol/DeviceProfileRegistry.h"
 #include "sony/protocol/HeadsetController.h"
+#include "sony/protocol/V1Notifications.h"
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <memory>
 
+using sony::SonyException;
+using sony::protocol::applyV1Notification;
+using sony::protocol::DataType;
 using sony::protocol::DeviceProfileRegistry;
+using sony::protocol::DeviceState;
 using sony::protocol::HeadsetController;
 using sony::protocol::NoiseControlMode;
 using sony::protocol::NoiseControlState;
+using sony::protocol::ProtocolGeneration;
 using sony::protocol::SonyModel;
 using sony::protocol::SonyProtocolVersion;
 using sony::test::FakeHeadset;
 using sony::test::Payload;
 using sony::test::kTestAddress;
+using sony::test::waitUntil;
 
 namespace {
 
@@ -85,11 +91,23 @@ TEST_F(WhXb900nConnection, ConnectUsesInitHandshakeThenLegacyV1) {
     EXPECT_TRUE(state.dsee);
     EXPECT_EQ(state.autoPowerOff, 1);
     EXPECT_EQ(state.firmware, "4.5.2");
+    EXPECT_EQ(controller->generation(), ProtocolGeneration::V1);
+}
 
-    EXPECT_TRUE(std::none_of(requests.begin(), requests.end(), [](const Payload& request) {
-        return request.size() >= 2 && request[1] == 0xd2 &&
-            (request[0] == 0xd0 || request[0] == 0xd2 || request[0] == 0xd6);
-    }));
+TEST_F(WhXb900nConnection, ReconnectRepeatsV2HandshakeBeforeLegacyV1) {
+    connect();
+    headset->simulateDisconnect();
+    ASSERT_TRUE(waitUntil([&] { return !controller->isConnected(); }));
+
+    const auto requestCount = headset->requests().size();
+    scriptWhXb900nConnect(*headset);
+    controller->connect(kTestAddress);
+
+    const auto requests = headset->requests();
+    ASSERT_GE(requests.size(), requestCount + 2);
+    EXPECT_EQ(requests[requestCount], (Payload{0x00, 0x00}));
+    EXPECT_EQ(requests[requestCount + 1], (Payload{0x66, 0x02}));
+    EXPECT_EQ(controller->generation(), ProtocolGeneration::V1);
 }
 
 TEST_F(WhXb900nConnection, SetNoiseControlUsesXb900nLayout) {
@@ -110,6 +128,14 @@ TEST_F(WhXb900nConnection, SetNoiseControlUsesXb900nLayout) {
         .focusOnVoice = true,
     });
     EXPECT_EQ(headset->requests().back(), (Payload{0x68, 0x02, 0x10, 0x02, 0x00, 0x01, 0x01, 0x0f}));
+
+    headset->reply();
+    controller->setNoiseControl(NoiseControlState{
+        .mode = NoiseControlMode::Off,
+        .ambientLevel = 0,
+        .focusOnVoice = false,
+    });
+    EXPECT_EQ(headset->requests().back(), (Payload{0x68, 0x02, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00}));
 }
 
 TEST_F(WhXb900nConnection, SetCustomEqualizerUsesXb900nManualWriteValue) {
@@ -133,6 +159,21 @@ TEST_F(WhXb900nConnection, DseeAndConnectionQualityRequireConfirmedReplies) {
     controller->setConnectionQuality(true);  // stable connection
     EXPECT_EQ(headset->requests().back(), (Payload{0xe8, 0x01, 0x00, 0x01}));
     EXPECT_EQ(controller->state().connectionQuality, 1);
+
+    headset->reply({{0xe9, 0x01, 0x00, 0x00}});
+    controller->setConnectionQuality(false);  // sound quality
+    EXPECT_EQ(headset->requests().back(), (Payload{0xe8, 0x01, 0x00, 0x00}));
+    EXPECT_EQ(controller->state().connectionQuality, 0);
+}
+
+TEST_F(WhXb900nConnection, RejectedDseeReplyDoesNotChangeConfirmedState) {
+    connect();
+    ASSERT_TRUE(controller->state().dsee);
+
+    headset->reply({{0xe9, 0x02, 0x00, 0x01}});
+
+    EXPECT_THROW(controller->setDsee(false), SonyException);
+    EXPECT_TRUE(controller->state().dsee);
 }
 
 TEST_F(WhXb900nConnection, AutoPowerOffUsesCapturedLegacyCommandFamily) {
@@ -145,4 +186,41 @@ TEST_F(WhXb900nConnection, AutoPowerOffUsesCapturedLegacyCommandFamily) {
     headset->reply({{0xf9, 0x04, 0x01, 0x11, 0x03}});
     controller->setAutoPowerOff(0);
     EXPECT_EQ(headset->requests().back(), (Payload{0xf8, 0x04, 0x01, 0x11, 0x03}));
+}
+
+TEST_F(WhXb900nConnection, LegacySpatialAndVoiceGuidanceUseCapturedCommands) {
+    connect();
+
+    headset->reply();
+    controller->setVpt(3);
+    EXPECT_EQ(headset->requests().back(), (Payload{0x48, 0x01, 0x03}));
+
+    headset->reply();
+    controller->setSoundPosition(0x11);
+    EXPECT_EQ(headset->requests().back(), (Payload{0x48, 0x02, 0x11}));
+
+    headset->replyTable2({{0x49, 0x01, 0x01, 0x00}});
+    controller->setVoiceGuidance(0);
+    EXPECT_EQ(headset->requests().back(), (Payload{0x48, 0x01, 0x01, 0x00}));
+    EXPECT_EQ(headset->requestTypes().back(), DataType::DataMdrNo2);
+    EXPECT_EQ(controller->state().voiceGuidance, 0);
+}
+
+TEST(WhXb900nNotifications, ParsesLiveCodecChanges) {
+    DeviceState state;
+
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x01}, state));
+    EXPECT_EQ(state.codec, "SBC");
+
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x02}, state));
+    EXPECT_EQ(state.codec, "AAC");
+
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x20}, state));
+    EXPECT_EQ(state.codec, "aptX");
+
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x21}, state));
+    EXPECT_EQ(state.codec, "aptX HD");
+
+    EXPECT_FALSE(applyV1Notification(Payload{0x1b, 0x00, 0xff}, state));
+    EXPECT_EQ(state.codec, "aptX HD");
 }

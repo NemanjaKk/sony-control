@@ -330,7 +330,9 @@
                         </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
                 </StackPanel>
-                <!-- /Playback -->                <MenuFlyoutSeparator />
+                <!-- /Playback -->
+
+                <MenuFlyoutSeparator />
 
                 <!-- Codec-gated popup Sound -->
                 <ContentControl
@@ -340,7 +342,7 @@
                     <StackPanel Spacing="8">
                         <Grid
                             ColumnDefinitions="*,Auto"
-                            Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupEqualizer, Mode=OneWay, FallbackValue=Collapsed}">
+                            Visibility="{x:Bind ViewModel.CurrentHeadset.Features.Equalizer, Mode=OneWay, FallbackValue=Collapsed}">
                             <TextBlock VerticalAlignment="Center" Text="Equalizer" />
                             <ComboBox
                                 Grid.Column="1"
@@ -352,14 +354,14 @@
                         </Grid>
                         <Grid
                             ColumnDefinitions="*,Auto"
-                            Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupDsee, Mode=OneWay, FallbackValue=Collapsed}">
+                            Visibility="{x:Bind ViewModel.CurrentHeadset.Features.Dsee, Mode=OneWay, FallbackValue=Collapsed}">
                             <TextBlock
                                 VerticalAlignment="Center"
                                 Text="{x:Bind ViewModel.CurrentHeadset.DseeName, Mode=OneWay}" />
                             <ComboBox
                                 Grid.Column="1"
                                 MinWidth="150"
-                                AutomationProperties.Name="DSEE"
+                                AutomationProperties.Name="{x:Bind ViewModel.CurrentHeadset.DseeName, Mode=OneWay}"
                                 ItemsSource="{x:Bind vm:HeadsetViewModel.DseeOptions}"
                                 SelectedIndex="{x:Bind ViewModel.CurrentHeadset.DseeIndex, Mode=TwoWay}" />
                         </Grid>
@@ -368,7 +370,7 @@
                 <!-- /Codec-gated popup Sound -->
                 <!-- WH-XB900N connection mode is a separate popup section. -->
                 <MenuFlyoutSeparator
-                    Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupSoundSection, Mode=OneWay}" />
+                    Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupConnectionSeparator, Mode=OneWay}" />
                 <ContentControl
                     IsEnabled="{x:Bind ViewModel.CurrentHeadset.IsConnected, Mode=OneWay, FallbackValue=False}"
                     Style="{StaticResource SectionStyle}"

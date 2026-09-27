@@ -17,7 +17,7 @@ public interface IBluetoothAudio
     Task<bool> ConnectAsync(string bluetoothAddress);
 
     /// <summary>
-    /// Asks Windows to disconnect the headset's Bluetooth audio.
+    /// Asks Windows to disconnect the headset's full Bluetooth link.
     /// </summary>
     Task<bool> DisconnectAsync(string bluetoothAddress);
 }

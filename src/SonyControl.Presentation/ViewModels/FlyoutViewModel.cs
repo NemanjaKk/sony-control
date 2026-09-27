@@ -197,13 +197,15 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async void OnAudioReconnectRequested(object? sender, EventArgs e)
+    private async void OnAudioReconnectRequested(object? sender, AudioReconnectRequestedEventArgs e)
     {
         if (sender is not HeadsetViewModel headset || headset.ModelName != "WH-XB900N")
         {
+            e.Complete(false);
             return;
         }
 
+        var succeeded = false;
         try
         {
             if (!await _bluetoothAudio.DisconnectAsync(headset.Id).ConfigureAwait(true))
@@ -211,8 +213,8 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            // The successful manual AAC path included a real Windows device
-            // disconnect. Wait for HeadsetManager to observe that same state.
+            // Wait until HeadsetManager observes the full Windows Bluetooth disconnect
+            // before asking Windows to reconnect and perform a fresh A2DP negotiation.
             for (var attempt = 0; attempt < 50 && headset.IsWindowsConnected; attempt++)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(true);
@@ -224,12 +226,15 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(500)).ConfigureAwait(true);
-            _ = await _bluetoothAudio.ConnectAsync(headset.Id).ConfigureAwait(true);
+            succeeded = await _bluetoothAudio.ConnectAsync(headset.Id).ConfigureAwait(true);
         }
         catch (Exception)
         {
-            // Best effort. Native logging records whether Windows
-            // accepted the full disconnect and subsequent audio reconnect.
+            // The view model reports a failed reconnect to the user.
+        }
+        finally
+        {
+            e.Complete(succeeded);
         }
     }
     // Connect asks Windows for the headset's audio; the connect then arrives like any other

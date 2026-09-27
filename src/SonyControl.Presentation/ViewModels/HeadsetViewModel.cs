@@ -12,6 +12,16 @@ using SonyControl.Presentation.Settings;
 
 namespace SonyControl.Presentation.ViewModels;
 
+internal sealed class AudioReconnectRequestedEventArgs : EventArgs
+{
+    private readonly TaskCompletionSource<bool> _completion =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task<bool> Completion => _completion.Task;
+
+    public void Complete(bool succeeded) => _completion.TrySetResult(succeeded);
+}
+
 /// <summary>
 /// One headset's controls for the flyout device page and the settings window.
 /// </summary>
@@ -34,11 +44,6 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     private const string NoValue = "—";
 
-    private static readonly Action<ILogger, string, string, Exception?> LogWhXb900nState =
-        LoggerMessage.Define<string, string>(
-            LogLevel.Information,
-            new EventId(1, nameof(LogWhXb900nState)),
-            "WH-XB900N state: ConnectionMode={ConnectionMode}, Codec={Codec}");
     private readonly ManagedHeadset _managed;
     private readonly IHeadset _headset;
     private readonly AppSettings _settings;
@@ -79,7 +84,6 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private bool _connectRetried;
     private bool _applying;
     private int _noiseCommandsInFlight;
-
 
     public HeadsetViewModel(
         ManagedHeadset managed,
@@ -285,10 +289,10 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     public event EventHandler? ReconnectRequested;
 
     /// <summary>
-    /// Requests a full Windows Bluetooth reconnect for WH-XB900N AAC mode,
-    /// allowing Windows to perform a fresh A2DP codec negotiation.
+    /// Requests a full Windows Bluetooth reconnect for WH-XB900N AAC mode and completes
+    /// when Windows accepts or rejects the reconnect request.
     /// </summary>
-    public event EventHandler? AudioReconnectRequested;
+    internal event EventHandler<AudioReconnectRequestedEventArgs>? AudioReconnectRequested;
 
     /// <summary>
     /// Lets go of the headset until Reconnect (see <see cref="HeadsetManager.Release"/>).
@@ -515,9 +519,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 requestedIndex == 2 &&
                 string.Equals(_snapshot.Codec, "AAC", StringComparison.Ordinal);
 
-            // aptX-family High Quality does not actually run DSEE on WH-XB900N.
-            // Turn the setting off while we're still on a codec where the command
-            // is meaningful, so the UI and the device do not retain a fake "On".
+            // aptX-family High Quality does not run DSEE on WH-XB900N. Turn DSEE off
+            // while the headset is still on a codec where that command is meaningful.
             if (requestedIndex == 2 && DseeIndex == 1)
             {
                 await _headset.SetDseeAsync(false).ConfigureAwait(false);
@@ -536,15 +539,13 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 });
             }
 
-            // High Quality and AAC both use Sony's Quality policy. Re-sending
-            // Quality while AAC is already active does not trigger a useful new
-            // negotiation, so AAC -> High Quality must pass through SBC first.
+            // AAC and High Quality both use Sony's Quality policy. Re-sending Quality
+            // while AAC is active does not renegotiate the codec, so pass through
+            // Stability and wait for the headset to report SBC before returning to Quality.
             if (highQualityFromAac)
             {
                 await _headset.SetConnectionQualityAsync(true).ConfigureAwait(false);
 
-                // Wait until the headset actually reports SBC before asking for
-                // Quality again. Hardware captures show this can take several seconds.
                 for (var attempt = 0;
                      attempt < 100 &&
                      !string.Equals(_snapshot.Codec, "SBC", StringComparison.Ordinal);
@@ -553,7 +554,10 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                     await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
                 }
 
-                // Do not perform the second A2DP reconfigure immediately.
+                if (!string.Equals(_snapshot.Codec, "SBC", StringComparison.Ordinal))
+                {
+                    throw new TimeoutException("WH-XB900N did not report SBC while switching connection mode.");
+                }
             }
 
             // SBC -> Sony Stability.
@@ -562,8 +566,17 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
             if (requestedIndex == 1)
             {
-                // AAC uses the hardware-tested full-Windows-reconnect path.
-                AudioReconnectRequested?.Invoke(this, EventArgs.Empty);
+                var request = new AudioReconnectRequestedEventArgs();
+                if (AudioReconnectRequested is null)
+                {
+                    throw new InvalidOperationException("No Windows Bluetooth reconnect handler is available.");
+                }
+
+                AudioReconnectRequested.Invoke(this, request);
+                if (!await request.Completion.ConfigureAwait(false))
+                {
+                    throw new InvalidOperationException("Windows did not complete the Bluetooth reconnect request.");
+                }
             }
         }
         catch (Exception ex)
@@ -585,21 +598,20 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     public bool HasLegacySpatialControls => ModelName == "WH-XB900N";
 
     public bool CanEditHeadsetSound =>
-        !HasConnectionQualityControl ||
-        (IsConnected &&
-         !_connectionQualityBusy &&
-         _snapshot.Codec is "SBC" or "AAC");
+        IsConnected &&
+        (!HasConnectionQualityControl ||
+         (!_connectionQualityBusy && _snapshot.Codec is "SBC" or "AAC"));
 
     // Compact popup behavior: unavailable WH-XB900N sound effects disappear
-    // in Quality mode instead of looking usable.
-    public bool ShowPopupEqualizer => Features.Equalizer;
-    public bool ShowPopupDsee => Features.Dsee;
+    // when a non-SBC/AAC codec is actually reported.
     public bool ShowPopupSoundSection =>
-        (ShowPopupEqualizer || ShowPopupDsee) &&
+        (Features.Equalizer || Features.Dsee) &&
         (!HasConnectionQualityControl ||
          string.IsNullOrEmpty(_snapshot.Codec) ||
          _snapshot.Codec is "SBC" or "AAC");
 
+    public bool ShowPopupConnectionSeparator =>
+        HasConnectionQualityControl && ShowPopupSoundSection;
 
     public static IReadOnlyList<string> VptPresetOptions { get; } =
         ["Off", "Outdoor Stage", "Arena", "Concert Hall", "Club"];
@@ -614,6 +626,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         get => _vptPresetIndex;
         set
         {
+            var previous = _vptPresetIndex;
             if (!HasLegacySpatialControls ||
                 !CanEditHeadsetSound ||
                 _spatialCommandInFlight ||
@@ -623,7 +636,14 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            _ = ApplySpatialAsync(() => _headset.SetVptAsync(value), resetPosition: value != 0);
+            _ = ApplySpatialAsync(
+                () => _headset.SetVptAsync(value),
+                () =>
+                {
+                    _vptPresetIndex = previous;
+                    OnPropertyChanged(nameof(VptPresetIndex));
+                },
+                resetPosition: value != 0);
         }
     }
 
@@ -632,6 +652,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         get => _soundPositionIndex;
         set
         {
+            var previous = _soundPositionIndex;
             if (!HasLegacySpatialControls ||
                 !CanEditHeadsetSound ||
                 _spatialCommandInFlight ||
@@ -643,12 +664,18 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
             _ = ApplySpatialAsync(
                 () => _headset.SetSoundPositionAsync(SoundPositionCodes[value]),
+                () =>
+                {
+                    _soundPositionIndex = previous;
+                    OnPropertyChanged(nameof(SoundPositionIndex));
+                },
                 resetVpt: value != 0);
         }
     }
 
     private async Task ApplySpatialAsync(
         Func<Task> apply,
+        Action revert,
         bool resetPosition = false,
         bool resetVpt = false)
     {
@@ -673,7 +700,11 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             LogMessages.CommandFailed(_logger, ex, "sound effect", DeviceName);
-            _ui.Post(() => ShowError(HeadsetErrorMessages.Describe(ex)));
+            _ui.Post(() =>
+            {
+                revert();
+                ShowError(HeadsetErrorMessages.Describe(ex));
+            });
         }
         finally
         {
@@ -938,9 +969,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         }
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(CanEditHeadsetSound));
-        OnPropertyChanged(nameof(ShowPopupEqualizer));
-        OnPropertyChanged(nameof(ShowPopupDsee));
         OnPropertyChanged(nameof(ShowPopupSoundSection));
+        OnPropertyChanged(nameof(ShowPopupConnectionSeparator));
         OnPropertyChanged(nameof(IsConnecting));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(PickerStatusText));
@@ -991,8 +1021,6 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     private void ApplySnapshot(HeadsetSnapshot snapshot)
     {
-        var previousCodec = _snapshot.Codec;
-        var previousConnectionQuality = _snapshot.ConnectionQuality;
         var skipNoise = _noiseThrottler.HasPending || Volatile.Read(ref _noiseCommandsInFlight) > 0;
 
         // Taking an earbud out briefly reports neither side; keep the last levels until the
@@ -1074,29 +1102,12 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(MainBatteryGlyph));
         OnPropertyChanged(nameof(Firmware));
         OnPropertyChanged(nameof(Codec));
-        OnPropertyChanged(nameof(ShowPopupSoundSection));
         OnPropertyChanged(nameof(CanEditHeadsetSound));
-        OnPropertyChanged(nameof(ShowPopupEqualizer));
-        OnPropertyChanged(nameof(ShowPopupDsee));
         OnPropertyChanged(nameof(ShowPopupSoundSection));
+        OnPropertyChanged(nameof(ShowPopupConnectionSeparator));
         OnPropertyChanged(nameof(AudioText));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(PickerStatusText));
-
-        if (ModelName == "WH-XB900N" &&
-            (snapshot.ConnectionQuality != previousConnectionQuality ||
-             !string.Equals(snapshot.Codec, previousCodec, StringComparison.Ordinal)))
-        {
-            var connectionMode = snapshot.ConnectionQuality switch
-            {
-                0 => "Priority on Quality",
-                1 => "Priority on Stability",
-                _ => "Unknown",
-            };
-            var codec = string.IsNullOrWhiteSpace(snapshot.Codec) ? "Unknown" : snapshot.Codec;
-
-            LogWhXb900nState(_logger, connectionMode, codec, null);
-        }
 
         _lowBattery.Update(Id, DeviceName, snapshot.Battery);
     }

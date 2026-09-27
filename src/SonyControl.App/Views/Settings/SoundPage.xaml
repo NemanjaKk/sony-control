@@ -17,7 +17,6 @@
                 Visibility="{x:Bind ViewModel.HasHeadset, Mode=OneWay}">
                 <StackPanel Spacing="8">
 
-
                     <!-- Equalizer Preset -->
                     <Border Style="{StaticResource SettingsCardStyle}" Visibility="{x:Bind ViewModel.SelectedHeadset.Features.Equalizer, Mode=OneWay}">
                         <Grid ColumnDefinitions="*,Auto">
@@ -79,7 +78,7 @@
                                 Grid.Column="1"
                                 MinWidth="180"
                                 VerticalAlignment="Center"
-                                AutomationProperties.Name="DSEE"
+                                AutomationProperties.Name="{x:Bind ViewModel.SelectedHeadset.DseeName, Mode=OneWay}"
                                 IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanEditHeadsetSound, Mode=OneWay}"
                                 ItemsSource="{x:Bind vm:HeadsetViewModel.DseeOptions}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedHeadset.DseeIndex, Mode=TwoWay}" />

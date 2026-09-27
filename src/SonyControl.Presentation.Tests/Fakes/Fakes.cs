@@ -53,7 +53,7 @@ internal sealed class FakeStartupTaskService : IStartupTaskService
 }
 
 /// <summary>
-/// Records connect requests; <see cref="Accept"/> decides what Windows answers.
+/// Records Bluetooth connect/disconnect requests; <see cref="Accept"/> decides what Windows answers.
 /// </summary>
 internal sealed class FakeBluetoothAudio : IBluetoothAudio
 {
