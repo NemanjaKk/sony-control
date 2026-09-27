@@ -176,6 +176,12 @@ void HeadsetController::setVpt(int preset) {
         throw SonyException(SonyErrorCode::Unsupported, "VPT is available for WH-XB900N V1 only");
     }
     command([&] { v1->setVpt(preset); });
+    updateState([&](DeviceState& state) {
+        state.vpt = preset;
+        if (preset != 0) {
+            state.soundPosition = 0;
+        }
+    });
 }
 
 void HeadsetController::setSoundPosition(int preset) {
@@ -184,6 +190,12 @@ void HeadsetController::setSoundPosition(int preset) {
         throw SonyException(SonyErrorCode::Unsupported, "Sound position is available for WH-XB900N V1 only");
     }
     command([&] { v1->setSoundPosition(preset); });
+    updateState([&](DeviceState& state) {
+        state.soundPosition = preset;
+        if (preset != 0) {
+            state.vpt = 0;
+        }
+    });
 }
 
 void HeadsetController::setVoiceGuidance(int value) {
@@ -341,6 +353,18 @@ void HeadsetController::readInitialState() {
                 initial.voiceGuidance = v1->getVoiceGuidance();
             }
         });
+        readOptional("VPT", true, [&] {
+            auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+            if (v1) {
+                initial.vpt = v1->getVpt();
+            }
+        });
+        readOptional("sound position", true, [&] {
+            auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+            if (v1) {
+                initial.soundPosition = v1->getSoundPosition();
+            }
+        });
     }
     readOptional("DSEE", capabilities.dsee, [&] { initial.dsee = _protocol->getDsee(); });
     readOptional("Speak-to-Chat", capabilities.speakToChat, [&] { initial.speakToChat = _protocol->getSpeakToChat(); });
@@ -348,6 +372,8 @@ void HeadsetController::readInitialState() {
     readOptional("auto power-off", capabilities.autoPowerOff, [&] { initial.autoPowerOff = _protocol->getAutoPowerOff(); });
     readOptional("firmware", capabilities.firmwareInfo, [&] { initial.firmware = _protocol->getFirmwareVersion(); });
     readOptional("codec", capabilities.codecInfo, [&] { initial.codec = _protocol->getCodec(); });
+
+
     readOptional("playback devices", capabilities.multipoint && _generation.load() == ProtocolGeneration::V2, [&] {
         initial.playbackDevices = _protocol->getPlaybackDevices();
     });

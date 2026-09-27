@@ -83,7 +83,9 @@ public sealed record HeadsetSnapshot(
     string Firmware,
     string Codec,
     int ConnectionQuality = -1,
-    int VoiceGuidance = -1)
+    int VoiceGuidance = -1,
+    int Vpt = -1,
+    int SoundPosition = -1)
 {
     /// <summary>
     /// Devices connected to the headset (multipoint), when it can switch playback between

@@ -80,6 +80,8 @@ namespace SonyControl.Core
         String Codec;
         Int32 ConnectionQuality;
         Int32 VoiceGuidance;
+        Int32 Vpt;
+        Int32 SoundPosition;
     };
 
     // A device connected to the headset (multipoint), and whether it has playback.

@@ -50,6 +50,20 @@ uint8_t whXb900nAutoPowerOffCode(int index) {
     }
 }
 
+bool isWhXb900nSoundPositionCode(uint8_t code) {
+    switch (code) {
+        case 0x00:
+        case 0x01:
+        case 0x02:
+        case 0x03:
+        case 0x11:
+        case 0x12:
+            return true;
+        default:
+            return false;
+    }
+}
+
 constexpr auto kTimeout = std::chrono::milliseconds(1000);
 
 } // namespace
@@ -374,8 +388,23 @@ void ProtocolV1::setAdaptiveVolume(bool /*enabled*/) {
     throw SonyException(SonyErrorCode::Unsupported, "Adaptive Volume is not supported on Protocol V1");
 }
 
+int ProtocolV1::getVpt() {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "VPT is available for WH-XB900N only");
+    }
+
+    // Hardware-verified WH-XB900N readback:
+    // DataMdr GET 46 01 -> RET 47 01 <preset>.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0x46, 0x01} },
+        0x47, 0x01, kTimeout);
+    if (response.payload.size() != 3 || response.payload[1] != 0x01 || response.payload[2] > 0x04) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N VPT response");
+    }
+    return static_cast<int>(response.payload[2]);
+}
+
 void ProtocolV1::setVpt(int preset) {
-    // VPT_SET_PARAM (72), VPT (1), preset
     std::vector<uint8_t> payload = {
         0x48,
         0x01,
@@ -384,8 +413,24 @@ void ProtocolV1::setVpt(int preset) {
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
 
+int ProtocolV1::getSoundPosition() {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "Sound position is available for WH-XB900N only");
+    }
+
+    // Hardware-verified WH-XB900N readback:
+    // DataMdr GET 46 02 -> RET 47 02 <position code>.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0x46, 0x02} },
+        0x47, 0x02, kTimeout);
+    if (response.payload.size() != 3 || response.payload[1] != 0x02 ||
+        !isWhXb900nSoundPositionCode(response.payload[2])) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N sound-position response");
+    }
+    return static_cast<int>(response.payload[2]);
+}
+
 void ProtocolV1::setSoundPosition(int preset) {
-    // VPT_SET_PARAM (72), SOUND_POSITION (2), preset
     std::vector<uint8_t> payload = {
         0x48,
         0x02,
@@ -393,7 +438,6 @@ void ProtocolV1::setSoundPosition(int preset) {
     };
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
-
 int ProtocolV1::getVoiceGuidance() {
     if (!_whXb900nLayout) {
         throw SonyException(SonyErrorCode::Unsupported, "Voice guidance is available for WH-XB900N only");

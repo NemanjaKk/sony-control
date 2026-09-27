@@ -25,6 +25,8 @@ struct DeviceState {
     bool dsee{false};
     int connectionQuality{-1};  // -1 unknown, 0 sound quality, 1 stable connection
     int voiceGuidance{-1};      // -1 unknown, 0 off, 1 on
+    int vpt{-1};                // -1 unknown, otherwise preset 0..4
+    int soundPosition{-1};      // -1 unknown, otherwise raw position code
 
     std::string firmware;
     std::string codec;

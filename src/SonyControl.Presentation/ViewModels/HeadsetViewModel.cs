@@ -63,8 +63,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private int _connectionQualityIndex = -1;
     private bool _connectionQualityBusy;
     private int _voiceGuidanceIndex = -1;
-    private int _vptPresetIndex;
-    private int _soundPositionIndex;
+    private int _vptPresetIndex = -1;
+    private int _soundPositionIndex = -1;
     private bool _spatialCommandInFlight;
     private bool _speakToChat;
     private bool _adaptiveVolume;
@@ -511,7 +511,11 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private async Task ApplyConnectionQualityAsync(int requestedIndex)
     {
         _connectionQualityBusy = true;
-        _ui.Post(() => OnPropertyChanged(nameof(CanEditHeadsetSound)));
+        _ui.Post(() =>
+        {
+            OnPropertyChanged(nameof(CanChangeConnectionMode));
+            OnPropertyChanged(nameof(CanEditHeadsetSound));
+        });
 
         try
         {
@@ -591,11 +595,18 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         finally
         {
             _connectionQualityBusy = false;
-            _ui.Post(() => OnPropertyChanged(nameof(CanEditHeadsetSound)));
+            _ui.Post(() =>
+            {
+                OnPropertyChanged(nameof(CanChangeConnectionMode));
+                OnPropertyChanged(nameof(CanEditHeadsetSound));
+            });
         }
     }
 
     public bool HasLegacySpatialControls => ModelName == "WH-XB900N";
+
+    public bool CanChangeConnectionMode =>
+        HasConnectionQualityControl && IsConnected && !_connectionQualityBusy;
 
     public bool CanEditHeadsetSound =>
         IsConnected &&
@@ -626,6 +637,12 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         get => _vptPresetIndex;
         set
         {
+            if (_applying)
+            {
+                SetProperty(ref _vptPresetIndex, value);
+                return;
+            }
+
             var previous = _vptPresetIndex;
             if (!HasLegacySpatialControls ||
                 !CanEditHeadsetSound ||
@@ -646,12 +663,17 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 resetPosition: value != 0);
         }
     }
-
     public int SoundPositionIndex
     {
         get => _soundPositionIndex;
         set
         {
+            if (_applying)
+            {
+                SetProperty(ref _soundPositionIndex, value);
+                return;
+            }
+
             var previous = _soundPositionIndex;
             if (!HasLegacySpatialControls ||
                 !CanEditHeadsetSound ||
@@ -672,7 +694,6 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 resetVpt: value != 0);
         }
     }
-
     private async Task ApplySpatialAsync(
         Func<Task> apply,
         Action revert,
@@ -968,6 +989,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             return;
         }
         OnPropertyChanged(nameof(IsConnected));
+        OnPropertyChanged(nameof(CanChangeConnectionMode));
         OnPropertyChanged(nameof(CanEditHeadsetSound));
         OnPropertyChanged(nameof(ShowPopupSoundSection));
         OnPropertyChanged(nameof(ShowPopupConnectionSeparator));
@@ -1078,6 +1100,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             {
                 VoiceGuidanceIndex = snapshot.VoiceGuidance;
             }
+            VptPresetIndex = snapshot.Vpt is >= 0 and <= 4 ? snapshot.Vpt : -1;
+            SoundPositionIndex = Array.IndexOf(SoundPositionCodes, snapshot.SoundPosition);
             SpeakToChat = snapshot.SpeakToChat;
             AdaptiveVolume = snapshot.AdaptiveVolume;
             AutoPowerOffIndex = snapshot.AutoPowerOff;

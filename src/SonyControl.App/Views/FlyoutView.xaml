@@ -372,7 +372,7 @@
                 <MenuFlyoutSeparator
                     Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupConnectionSeparator, Mode=OneWay}" />
                 <ContentControl
-                    IsEnabled="{x:Bind ViewModel.CurrentHeadset.IsConnected, Mode=OneWay, FallbackValue=False}"
+                    IsEnabled="{x:Bind ViewModel.CurrentHeadset.CanChangeConnectionMode, Mode=OneWay, FallbackValue=False}"
                     Style="{StaticResource SectionStyle}"
                     Visibility="{x:Bind ViewModel.CurrentHeadset.HasConnectionQualityControl, Mode=OneWay}">
                     <Grid ColumnDefinitions="*,Auto">

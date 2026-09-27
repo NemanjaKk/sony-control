@@ -102,7 +102,9 @@ public sealed class WinRtHeadset : IHeadset
         state.Firmware ?? "",
         state.Codec ?? "",
         state.ConnectionQuality,
-        state.VoiceGuidance);
+        state.VoiceGuidance,
+        state.Vpt,
+        state.SoundPosition);
 
     private static int? Known(int level) => level < 0 ? null : level;
 

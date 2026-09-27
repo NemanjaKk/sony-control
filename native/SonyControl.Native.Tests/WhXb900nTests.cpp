@@ -36,6 +36,8 @@ void scriptWhXb900nConnect(FakeHeadset& headset) {
     headset.reply({{0x57, 0x01, 0xa0, 0x06, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a}});
     headset.reply({{0xe7, 0x01, 0x00, 0x00}});
     headset.replyTable2({{0x47, 0x01, 0x01, 0x01}});
+    headset.reply({{0x47, 0x01, 0x00}});
+    headset.reply({{0x47, 0x02, 0x01}});
     headset.reply({{0xe7, 0x02, 0x00, 0x01}});
     headset.reply({{0xf7, 0x04, 0x01, 0x00, 0x00}});
     headset.reply({{0x05, 0x02, 0x05, '4', '.', '5', '.', '2'}});
@@ -88,6 +90,8 @@ TEST_F(WhXb900nConnection, ConnectUsesInitHandshakeThenLegacyV1) {
     const auto state = controller->state();
     EXPECT_EQ(state.connectionQuality, 0);
     EXPECT_EQ(state.voiceGuidance, 1);
+    EXPECT_EQ(state.vpt, 0);
+    EXPECT_EQ(state.soundPosition, 0x01);
     EXPECT_TRUE(state.dsee);
     EXPECT_EQ(state.autoPowerOff, 1);
     EXPECT_EQ(state.firmware, "4.5.2");
@@ -194,10 +198,14 @@ TEST_F(WhXb900nConnection, LegacySpatialAndVoiceGuidanceUseCapturedCommands) {
     headset->reply();
     controller->setVpt(3);
     EXPECT_EQ(headset->requests().back(), (Payload{0x48, 0x01, 0x03}));
+    EXPECT_EQ(controller->state().vpt, 3);
+    EXPECT_EQ(controller->state().soundPosition, 0);
 
     headset->reply();
     controller->setSoundPosition(0x11);
     EXPECT_EQ(headset->requests().back(), (Payload{0x48, 0x02, 0x11}));
+    EXPECT_EQ(controller->state().soundPosition, 0x11);
+    EXPECT_EQ(controller->state().vpt, 0);
 
     headset->replyTable2({{0x49, 0x01, 0x01, 0x00}});
     controller->setVoiceGuidance(0);

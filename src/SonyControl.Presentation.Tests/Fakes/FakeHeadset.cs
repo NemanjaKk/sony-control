@@ -132,9 +132,23 @@ internal sealed class FakeHeadset : IHeadset
 
     public Task SetDseeAsync(bool enabled) => Command(("dsee", enabled), state => state with { Dsee = enabled });
 
-    public Task SetVptAsync(int preset) => Command(("vpt", preset), state => state);
+    public Task SetVptAsync(int preset) =>
+        Command(
+            ("vpt", preset),
+            state => state with
+            {
+                Vpt = preset,
+                SoundPosition = preset != 0 ? 0 : state.SoundPosition,
+            });
 
-    public Task SetSoundPositionAsync(int position) => Command(("soundPosition", position), state => state);
+    public Task SetSoundPositionAsync(int position) =>
+        Command(
+            ("soundPosition", position),
+            state => state with
+            {
+                SoundPosition = position,
+                Vpt = position != 0 ? 0 : state.Vpt,
+            });
 
     public Task SetVoiceGuidanceAsync(int value) =>
         Command(("voiceGuidance", value), state => state with { VoiceGuidance = value });

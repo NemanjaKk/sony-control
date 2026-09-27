@@ -96,12 +96,20 @@ public sealed class HeadsetClientActivationTests
     [TestMethod]
     public void Xb900nStateFieldsCrossTheWinRtBoundary()
     {
-        var state = new Core.HeadsetState { ConnectionQuality = 1, VoiceGuidance = 0 };
+        var state = new Core.HeadsetState
+        {
+            ConnectionQuality = 1,
+            VoiceGuidance = 0,
+            Vpt = 4,
+            SoundPosition = 0x12,
+        };
 
         var snapshot = WinRtHeadset.ToSnapshot(state);
 
         Assert.AreEqual(1, snapshot.ConnectionQuality);
         Assert.AreEqual(0, snapshot.VoiceGuidance);
+        Assert.AreEqual(4, snapshot.Vpt);
+        Assert.AreEqual(0x12, snapshot.SoundPosition);
     }
 
     [TestMethod]

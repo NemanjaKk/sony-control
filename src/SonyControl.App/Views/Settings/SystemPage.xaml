@@ -84,6 +84,7 @@
                                 Grid.Column="1"
                                 MinWidth="180"
                                 AutomationProperties.Name="Connection mode"
+                                IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanChangeConnectionMode, Mode=OneWay}"
                                 ItemsSource="{x:Bind vm:HeadsetViewModel.ConnectionQualityOptions}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedHeadset.ConnectionQualityIndex, Mode=TwoWay}" />
                         </Grid>

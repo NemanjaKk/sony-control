@@ -113,6 +113,8 @@ Core::HeadsetState toHeadsetState(const sony::protocol::DeviceState& state) {
     result.Dsee = state.dsee;
     result.ConnectionQuality = state.connectionQuality;
     result.VoiceGuidance = state.voiceGuidance;
+    result.Vpt = state.vpt;
+    result.SoundPosition = state.soundPosition;
     result.SpeakToChat = state.speakToChat;
     result.AdaptiveVolume = state.adaptiveVolume;
     result.AutoPowerOff = state.autoPowerOff;

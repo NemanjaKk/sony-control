@@ -135,6 +135,8 @@ public sealed class HeadsetViewModelTests
                 Codec = "SBC",
                 ConnectionQuality = 1,
                 VoiceGuidance = 1,
+                Vpt = 0,
+                SoundPosition = 0x01,
             },
         };
         var managed = new ManagedHeadset("device-xb900n", "AC:80:0A:00:09:00", "WH-XB900N", headset)
@@ -158,10 +160,13 @@ public sealed class HeadsetViewModelTests
         Assert.AreEqual("SBC", HeadsetViewModel.ConnectionQualityOptions[0]);
         Assert.AreEqual("AAC", HeadsetViewModel.ConnectionQualityOptions[1]);
         Assert.AreEqual("High Quality", HeadsetViewModel.ConnectionQualityOptions[2]);
+        Assert.IsTrue(viewModel.CanChangeConnectionMode);
         Assert.IsTrue(viewModel.CanEditHeadsetSound);
         Assert.IsTrue(viewModel.ShowPopupSoundSection);
         Assert.IsTrue(viewModel.ShowPopupConnectionSeparator);
         Assert.AreEqual(1, viewModel.VoiceGuidanceIndex);
+        Assert.AreEqual(0, viewModel.VptPresetIndex);
+        Assert.AreEqual(1, viewModel.SoundPositionIndex);
     }
 
     [TestMethod]
@@ -254,6 +259,7 @@ public sealed class HeadsetViewModelTests
 
         viewModel.ConnectionQualityIndex = 2;
 
+        Assert.IsFalse(viewModel.CanChangeConnectionMode);
         Assert.IsTrue(await TestWait.UntilAsync(() => headset.Commands.Count == 1));
         Assert.AreEqual(("dsee", false), ((string, bool))headset.Commands[0]);
         headset.CompleteHeldCommands();
@@ -269,6 +275,7 @@ public sealed class HeadsetViewModelTests
         headset.CompleteHeldCommands();
 
         Assert.IsTrue(await TestWait.UntilAsync(() => viewModel.DseeIndex == 0));
+        Assert.IsTrue(await TestWait.UntilAsync(() => viewModel.CanChangeConnectionMode));
     }
 
     [TestMethod]
@@ -276,7 +283,13 @@ public sealed class HeadsetViewModelTests
     {
         using var headset = new FakeHeadset("WH-XB900N", FakeHeadset.Xb900nFeatures)
         {
-            State = HeadsetSnapshot.Empty with { Codec = "SBC", ConnectionQuality = 1 },
+            State = HeadsetSnapshot.Empty with
+            {
+                Codec = "SBC",
+                ConnectionQuality = 1,
+                Vpt = 0,
+                SoundPosition = 0,
+            },
             FailNextCommandWith = new COMException("timeout", HeadsetErrorMessages.TimeoutHResult),
         };
         var managed = new ManagedHeadset("device-xb900n", "AC:80:0A:00:09:00", "WH-XB900N", headset)
