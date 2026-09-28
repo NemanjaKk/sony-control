@@ -96,17 +96,7 @@
                                 <SolidColorBrush x:Key="RowRestBrush" Color="Transparent" />
                             </Grid.Resources>
                             <!-- Model picture, or the headphone icon when there's no picture -->
-                            <Grid Width="48" Height="48">
-                                <Image
-                                    AutomationProperties.AccessibilityView="Raw"
-                                    Source="{x:Bind app:DeviceArt.For(ModelName)}"
-                                    Stretch="Uniform"
-                                    Visibility="{x:Bind app:DeviceArt.VisibleFor(ModelName)}" />
-                                <FontIcon
-                                    FontSize="20"
-                                    Glyph="&#xE7F6;"
-                                    Visibility="{x:Bind app:DeviceArt.HiddenFor(ModelName)}" />
-                            </Grid>
+                            <local:DevicePicture ModelName="{x:Bind ModelName}" />
                             <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind DeviceName}" />
                                 <!-- Status, or a failed connect in the caution color (the list has no warning bar) -->

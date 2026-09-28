@@ -25,10 +25,8 @@
                     <DataTemplate x:DataType="vm:HeadsetViewModel">
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="24"
-                                    Glyph="&#xE7F6;" />
+                                <!-- Model picture, or the headphone icon when there's no picture -->
+                                <views:DevicePicture VerticalAlignment="Center" ModelName="{x:Bind ModelName}" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind DeviceName}" />
                                     <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="{x:Bind StatusText, Mode=OneWay}" />
