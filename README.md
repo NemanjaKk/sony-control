@@ -14,6 +14,7 @@ A Windows 11 tray app that controls Sony headphones from a native WinUI flyout.
 
 - WF-1000XM
 - WH-1000XM4
+- WH-XB900N
 
 In theory, since we're using [sony-device-center](https://github.com/marconvcm/sony-device-center) from [marconvcm](https://github.com/marconvcm), the headphones supported there should work here. If not, open an issue and I'll investigate
 
