@@ -69,6 +69,11 @@ public sealed record HeadsetFeatures(
     bool CodecInfo)
 {
     /// <summary>
+    /// Uses the DSEE Extreme branding rather than regular DSEE.
+    /// </summary>
+    public bool DseeExtreme { get; init; }
+
+    /// <summary>
     /// Supports changing the Bluetooth connection-quality mode.
     /// </summary>
     public bool ConnectionQuality { get; init; }

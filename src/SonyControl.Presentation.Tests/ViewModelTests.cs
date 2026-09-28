@@ -196,6 +196,7 @@ public sealed class HeadsetViewModelTests
             _time,
             NullLogger.Instance);
 
+        Assert.AreEqual("DSEE", capableViewModel.DseeName);
         Assert.IsTrue(capableViewModel.HasConnectionQualityControl);
         Assert.IsTrue(capableViewModel.HasLegacySpatialControls);
         Assert.IsTrue(capableViewModel.HasVoiceGuidanceControl);
@@ -215,6 +216,7 @@ public sealed class HeadsetViewModelTests
             _time,
             NullLogger.Instance);
 
+        Assert.AreEqual("DSEE Extreme", namedViewModel.DseeName);
         Assert.IsFalse(namedViewModel.HasConnectionQualityControl);
         Assert.IsFalse(namedViewModel.HasLegacySpatialControls);
         Assert.IsFalse(namedViewModel.HasVoiceGuidanceControl);
@@ -614,6 +616,17 @@ public sealed class HeadsetViewModelTests
         Assert.IsTrue(before >= 0);
 
         _viewModel.SelectedEqualizerIndex = -1;
+
+        Assert.AreEqual(before, _viewModel.SelectedEqualizerIndex);
+        Assert.AreEqual(0, _headset.Commands.Count);
+    }
+
+    [TestMethod]
+    public void EqualizerRejectsOutOfRangePresetWithoutSavingIt()
+    {
+        var before = _viewModel.SelectedEqualizerIndex;
+
+        _viewModel.SelectedEqualizerIndex = 999;
 
         Assert.AreEqual(before, _viewModel.SelectedEqualizerIndex);
         Assert.AreEqual(0, _headset.Commands.Count);
@@ -1045,11 +1058,11 @@ public sealed class FlyoutViewModelTests
 
         _source.Report(Xb900n with { IsConnected = false });
 
-        for (var attempt = 0; attempt < 10 && _audio.Requests.Count == 0; attempt++)
+        Assert.IsTrue(await TestWait.UntilAsync(() =>
         {
             _time.Advance(TimeSpan.FromMilliseconds(100));
-            await Task.Yield();
-        }
+            return _audio.Requests.Count == 1;
+        }));
 
         Assert.AreEqual(1, _audio.Requests.Count);
         Assert.AreEqual("AC:80:0A:00:09:00", _audio.Requests[0]);

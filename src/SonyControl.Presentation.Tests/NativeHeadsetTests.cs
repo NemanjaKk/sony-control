@@ -19,6 +19,7 @@ public sealed class HeadsetClientActivationTests
         Assert.AreEqual(Core.ProtocolGeneration.V2, client.Protocol);
         Assert.IsTrue(client.Capabilities.DualBattery);
         Assert.IsTrue(client.Capabilities.Dsee);
+        Assert.IsTrue(client.Capabilities.DseeExtreme);
         Assert.IsFalse(client.IsConnected);
     }
 
@@ -37,13 +38,12 @@ public sealed class HeadsetClientActivationTests
         Assert.IsTrue(client.Capabilities.ConnectionQuality);
         Assert.IsTrue(client.Capabilities.AutoPowerOff);
         Assert.IsFalse(client.Capabilities.SpeakToChat);
-
-        using var headset = new WinRtHeadset("WH-XB900N");
-        Assert.IsTrue(headset.Features.VoiceGuidance);
-        Assert.IsTrue(headset.Features.Vpt);
-        Assert.IsTrue(headset.Features.SoundPosition);
-        Assert.IsFalse(headset.Features.PowerOff);
-        Assert.IsFalse(headset.Features.AutoPowerOffWhenRemoved);
+        Assert.IsFalse(client.Capabilities.DseeExtreme);
+        Assert.IsTrue(client.Capabilities.VoiceGuidance);
+        Assert.IsTrue(client.Capabilities.Vpt);
+        Assert.IsTrue(client.Capabilities.SoundPosition);
+        Assert.IsFalse(client.Capabilities.PowerOff);
+        Assert.IsFalse(client.Capabilities.AutoPowerOffWhenRemoved);
     }
 
     [TestMethod]
@@ -54,10 +54,8 @@ public sealed class HeadsetClientActivationTests
         Assert.AreEqual("Some Headphones", client.ModelName);
         Assert.IsFalse(client.IsKnownModel);
         Assert.IsFalse(client.Capabilities.Equalizer);
-
-        using var headset = new WinRtHeadset("Some Headphones");
-        Assert.IsTrue(headset.Features.PowerOff);
-        Assert.IsTrue(headset.Features.AutoPowerOffWhenRemoved);
+        Assert.IsTrue(client.Capabilities.PowerOff);
+        Assert.IsTrue(client.Capabilities.AutoPowerOffWhenRemoved);
     }
 
     [TestMethod]

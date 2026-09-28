@@ -39,7 +39,6 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     public static readonly TimeSpan SliderInterval = TimeSpan.FromMilliseconds(150);
     public static readonly TimeSpan ErrorDuration = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ConnectionModeCodecTimeout = TimeSpan.FromSeconds(10);
-
     private static readonly TimeSpan ConnectionModePollInterval = TimeSpan.FromMilliseconds(100);
 
     /// <summary>
@@ -259,9 +258,9 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     public bool ShowStatus => !IsConnected;
 
     /// <summary>
-    /// WH-XB900N uses regular DSEE; newer models expose DSEE Extreme.
+    /// DSEE branding advertised by the headset's feature profile.
     /// </summary>
-    public string DseeName => ModelName == "WH-XB900N" ? "DSEE" : "DSEE Extreme";
+    public string DseeName => Features.DseeExtreme ? "DSEE Extreme" : "DSEE";
 
     /// <summary>
     /// Codec plus the configured DSEE setting.
@@ -295,8 +294,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     public event EventHandler? ReconnectRequested;
 
     /// <summary>
-    /// Requests a full Windows Bluetooth reconnect for WH-XB900N AAC mode and completes
-    /// when Windows accepts or rejects the reconnect request.
+    /// Requests a full Windows Bluetooth reconnect for AAC mode and completes when Windows
+    /// accepts or rejects the reconnect request.
     /// </summary>
     internal event EventHandler<AudioReconnectRequestedEventArgs>? AudioReconnectRequested;
 
@@ -408,19 +407,24 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         get => _selectedEqualizerIndex;
         set
         {
-            if (value < 0 && !_applying && _selectedEqualizerIndex >= 0)
+            if (value < 0 && !_applying)
             {
                 // Tell the control again, once it has finished swapping lists
+                if (_selectedEqualizerIndex >= 0)
+                {
+                    _ui.Defer(() => OnPropertyChanged(nameof(SelectedEqualizerIndex)));
+                }
+                return;
+            }
+            if (!_applying &&
+                (value >= EqualizerPresets.Count ||
+                 (HasConnectionQualityControl && !CanEditHeadsetSound)))
+            {
                 _ui.Defer(() => OnPropertyChanged(nameof(SelectedEqualizerIndex)));
                 return;
             }
-            if (!SetProperty(ref _selectedEqualizerIndex, value) || _applying || value < 0 || value >= EqualizerPresets.Count)
+            if (!SetProperty(ref _selectedEqualizerIndex, value) || _applying)
             {
-                return;
-            }
-            if (HasConnectionQualityControl && !CanEditHeadsetSound)
-            {
-                _ui.Defer(() => OnPropertyChanged(nameof(SelectedEqualizerIndex)));
                 return;
             }
             var preset = EqualizerPresets[value].Value;
@@ -438,7 +442,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         {
             if (!_applying && HasConnectionQualityControl && !CanEditHeadsetSound)
             {
-                OnPropertyChanged(nameof(DseeIndex));
+                _ui.Defer(() => OnPropertyChanged(nameof(DseeIndex)));
                 return;
             }
             if (!SetProperty(ref _dseeIndex, value))
@@ -456,8 +460,14 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     public static IReadOnlyList<string> DseeOptions { get; } = ["Off", "Auto"];
 
+    /// <summary>
+    /// Whether this headset exposes the Bluetooth connection-quality control.
+    /// </summary>
     public bool HasConnectionQualityControl => Features.ConnectionQuality;
 
+    /// <summary>
+    /// Connection-mode choices shown for headsets that support connection-quality control.
+    /// </summary>
     public static IReadOnlyList<string> ConnectionQualityOptions { get; } =
         ["SBC", "AAC", "High Quality"];
 
@@ -486,6 +496,9 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         };
     }
 
+    /// <summary>
+    /// Selected connection mode: 0 is Stability/SBC, 1 is AAC, and 2 is High Quality.
+    /// </summary>
     public int ConnectionQualityIndex
     {
         get => _connectionQualityIndex;
@@ -506,7 +519,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 _connectionQualityBusy ||
                 value is < 0 or > 2)
             {
-                OnPropertyChanged(nameof(ConnectionQualityIndex));
+                _ui.Defer(() => OnPropertyChanged(nameof(ConnectionQualityIndex)));
                 return;
             }
 
@@ -580,7 +593,16 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                     throw new InvalidOperationException("No Windows Bluetooth reconnect handler is available.");
                 }
 
-                AudioReconnectRequested.Invoke(this, request);
+                _ui.Post(() =>
+                {
+                    var reconnectRequested = AudioReconnectRequested;
+                    if (reconnectRequested is null)
+                    {
+                        request.Complete(false);
+                        return;
+                    }
+                    reconnectRequested.Invoke(this, request);
+                });
                 if (!await request.Completion.WaitAsync(cancellationToken).ConfigureAwait(false))
                 {
                     throw new InvalidOperationException("Windows did not complete the Bluetooth reconnect request.");
@@ -632,39 +654,76 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Whether this headset exposes VPT or sound-position controls.
+    /// </summary>
     public bool HasLegacySpatialControls => Features.Vpt || Features.SoundPosition;
 
+    /// <summary>
+    /// Whether the connection-mode picker can accept a new selection.
+    /// </summary>
     public bool CanChangeConnectionMode =>
         HasConnectionQualityControl && IsConnected && !_connectionQualityBusy;
 
+    /// <summary>
+    /// Whether sound settings are valid for the headset's current connection mode.
+    /// </summary>
     public bool CanEditHeadsetSound =>
         IsConnected &&
         (!HasConnectionQualityControl ||
          (!_connectionQualityBusy && _snapshot.Codec is "SBC" or "AAC"));
 
+    /// <summary>
+    /// Whether the legacy spatial pickers can accept a new selection.
+    /// </summary>
     public bool CanChangeSpatialEffect => CanEditHeadsetSound && !_spatialCommandInFlight;
 
-    // Compact Popup Behavior: Unavailable Connection-Mode Sound Effects Disappear
-    // When A Non-SBC/AAC Codec Is Actually Reported
+    /// <summary>
+    /// Whether the compact popup should show the equalizer control.
+    /// </summary>
     public bool ShowPopupEqualizer => Features.Equalizer;
+
+    /// <summary>
+    /// Whether the compact popup should show the DSEE control.
+    /// </summary>
     public bool ShowPopupDsee => Features.Dsee;
+
+    /// <summary>
+    /// Whether the compact popup should show its sound-controls section.
+    /// </summary>
+    /// <remarks>
+    /// Connection-quality headsets hide these controls after reporting a codec other than
+    /// SBC or AAC.
+    /// </remarks>
     public bool ShowPopupSoundSection =>
         !HasConnectionQualityControl ||
         ((ShowPopupEqualizer || ShowPopupDsee) &&
          (string.IsNullOrEmpty(_snapshot.Codec) ||
           _snapshot.Codec is "SBC" or "AAC"));
 
+    /// <summary>
+    /// Whether the compact popup should separate connection mode from sound controls.
+    /// </summary>
     public bool ShowPopupConnectionSeparator =>
         HasConnectionQualityControl && ShowPopupSoundSection;
 
+    /// <summary>
+    /// VPT surround presets exposed by the legacy spatial control.
+    /// </summary>
     public static IReadOnlyList<string> VptPresetOptions { get; } =
         ["Off", "Outdoor Stage", "Arena", "Concert Hall", "Club"];
 
+    /// <summary>
+    /// Sound-position choices exposed by the legacy spatial control.
+    /// </summary>
     public static IReadOnlyList<string> SoundPositionOptions { get; } =
         ["Normal", "Left", "Right", "Front", "Back Left", "Back Right"];
 
     private static readonly int[] SoundPositionCodes = [0x00, 0x01, 0x02, 0x03, 0x11, 0x12];
 
+    /// <summary>
+    /// Selected VPT surround preset index.
+    /// </summary>
     public int VptPresetIndex
     {
         get => _vptPresetIndex;
@@ -681,7 +740,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 _spatialCommandInFlight ||
                 value is < 0 or > 4)
             {
-                OnPropertyChanged(nameof(VptPresetIndex));
+                _ui.Defer(() => OnPropertyChanged(nameof(VptPresetIndex)));
                 return;
             }
 
@@ -692,6 +751,9 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Selected sound-position option index.
+    /// </summary>
     public int SoundPositionIndex
     {
         get => _soundPositionIndex;
@@ -708,7 +770,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 _spatialCommandInFlight ||
                 value is < 0 or > 5)
             {
-                OnPropertyChanged(nameof(SoundPositionIndex));
+                _ui.Defer(() => OnPropertyChanged(nameof(SoundPositionIndex)));
                 return;
             }
 
@@ -749,8 +811,14 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Whether this headset exposes a voice-guidance toggle.
+    /// </summary>
     public bool HasVoiceGuidanceControl => Features.VoiceGuidance;
 
+    /// <summary>
+    /// Whether headset voice guidance is enabled.
+    /// </summary>
     public bool VoiceGuidance
     {
         get => _voiceGuidance;
@@ -764,7 +832,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
             if (!HasVoiceGuidanceControl || !IsConnected)
             {
-                OnPropertyChanged(nameof(VoiceGuidance));
+                _ui.Defer(() => OnPropertyChanged(nameof(VoiceGuidance)));
                 return;
             }
 
@@ -775,6 +843,9 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Whether the compact popup should offer the power-off action.
+    /// </summary>
     public bool CanPowerOffFromPopup => IsConnected && Features.PowerOff;
 
     public double ClearBass
@@ -889,6 +960,9 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private static IReadOnlyList<string> TimedAutoPowerOffOptions { get; } =
         ["Off", "After 5 minutes", "After 30 minutes", "After 1 hour", "After 3 hours"];
 
+    /// <summary>
+    /// Auto power-off choices supported by this headset's feature profile.
+    /// </summary>
     public IReadOnlyList<string> DisplayedAutoPowerOffOptions =>
         Features.AutoPowerOffWhenRemoved ? AutoPowerOffOptions : TimedAutoPowerOffOptions;
 

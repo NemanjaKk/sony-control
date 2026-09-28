@@ -17,7 +17,7 @@ public sealed class WinRtHeadset : IHeadset
     public WinRtHeadset(string deviceName)
     {
         _client = new Core.HeadsetClient(deviceName);
-        Features = ToFeatures(_client.Capabilities, _client.GetExtendedCapabilityFlags());
+        Features = ToFeatures(_client.Capabilities);
 
         _client.StateChanged += OnStateChanged;
         _client.Disconnected += OnDisconnected;
@@ -125,13 +125,7 @@ public sealed class WinRtHeadset : IHeadset
 
     private static int? Earbud(int level) => level > 0 ? level : null;
 
-    private const uint VoiceGuidanceCapability = 1u << 0;
-    private const uint VptCapability = 1u << 1;
-    private const uint SoundPositionCapability = 1u << 2;
-    private const uint PowerOffCapability = 1u << 3;
-    private const uint AutoPowerOffWhenRemovedCapability = 1u << 4;
-
-    private static HeadsetFeatures ToFeatures(Core.HeadsetCapabilities capabilities, uint extendedCapabilities) => new(
+    private static HeadsetFeatures ToFeatures(Core.HeadsetCapabilities capabilities) => new(
         capabilities.DualBattery,
         capabilities.NoiseCancelling,
         capabilities.AmbientSound,
@@ -145,12 +139,13 @@ public sealed class WinRtHeadset : IHeadset
         capabilities.FirmwareInfo,
         capabilities.CodecInfo)
     {
+        DseeExtreme = capabilities.DseeExtreme,
         ConnectionQuality = capabilities.ConnectionQuality,
-        VoiceGuidance = (extendedCapabilities & VoiceGuidanceCapability) != 0,
-        Vpt = (extendedCapabilities & VptCapability) != 0,
-        SoundPosition = (extendedCapabilities & SoundPositionCapability) != 0,
-        PowerOff = (extendedCapabilities & PowerOffCapability) != 0,
-        AutoPowerOffWhenRemoved = (extendedCapabilities & AutoPowerOffWhenRemovedCapability) != 0,
+        VoiceGuidance = capabilities.VoiceGuidance,
+        Vpt = capabilities.Vpt,
+        SoundPosition = capabilities.SoundPosition,
+        PowerOff = capabilities.PowerOff,
+        AutoPowerOffWhenRemoved = capabilities.AutoPowerOffWhenRemoved,
     };
 
     private void OnStateChanged(Core.HeadsetClient sender, Core.HeadsetState args) =>

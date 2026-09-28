@@ -65,6 +65,12 @@ namespace SonyControl.Core
         Boolean FirmwareInfo;
         Boolean CodecInfo;
         Boolean ConnectionQuality;
+        Boolean DseeExtreme;
+        Boolean VoiceGuidance;
+        Boolean Vpt;
+        Boolean SoundPosition;
+        Boolean PowerOff;
+        Boolean AutoPowerOffWhenRemoved;
     };
 
     struct HeadsetState
@@ -153,8 +159,5 @@ namespace SonyControl.Core
         // Raised on a background thread when the link drops unexpectedly.
         event Windows.Foundation.TypedEventHandler<HeadsetClient, Object> Disconnected;
 
-        // Extended Capability Flags
-        // Kept Outside HeadsetCapabilities To Preserve Its WinRT ABI
-        UInt32 GetExtendedCapabilityFlags();
     }
 }

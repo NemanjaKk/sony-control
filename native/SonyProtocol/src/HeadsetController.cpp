@@ -174,8 +174,8 @@ void HeadsetController::setDsee(bool enabled) {
 
 void HeadsetController::setVpt(int preset) {
     auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
-    if (_profile.model != SonyModel::WHXB900N || !v1) {
-        throw SonyException(SonyErrorCode::Unsupported, "VPT is available for WH-XB900N V1 only");
+    if (!_profile.capabilities.vpt || !v1) {
+        throw SonyException(SonyErrorCode::Unsupported, "VPT is not supported by this headset");
     }
     command([&] { v1->setVpt(preset); });
     updateState([&](DeviceState& state) {
@@ -188,8 +188,8 @@ void HeadsetController::setVpt(int preset) {
 
 void HeadsetController::setSoundPosition(int preset) {
     auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
-    if (_profile.model != SonyModel::WHXB900N || !v1) {
-        throw SonyException(SonyErrorCode::Unsupported, "Sound position is available for WH-XB900N V1 only");
+    if (!_profile.capabilities.soundPosition || !v1) {
+        throw SonyException(SonyErrorCode::Unsupported, "Sound position is not supported by this headset");
     }
     command([&] { v1->setSoundPosition(preset); });
     updateState([&](DeviceState& state) {
@@ -202,8 +202,8 @@ void HeadsetController::setSoundPosition(int preset) {
 
 void HeadsetController::setVoiceGuidance(int value) {
     auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
-    if (_profile.model != SonyModel::WHXB900N || !v1) {
-        throw SonyException(SonyErrorCode::Unsupported, "Voice guidance is available for WH-XB900N V1 only");
+    if (!_profile.capabilities.voiceGuidance || !v1) {
+        throw SonyException(SonyErrorCode::Unsupported, "Voice guidance is not supported by this headset");
     }
     command([&] { v1->setVoiceGuidance(value); });
     updateState([&](DeviceState& state) { state.voiceGuidance = value; });
@@ -348,26 +348,24 @@ void HeadsetController::readInitialState() {
     readOptional("connection quality", capabilities.connectionQuality, [&] {
         initial.connectionQuality = _protocol->getConnectionQuality();
     });
-    if (_profile.model == SonyModel::WHXB900N) {
-        readOptional("voice guidance", true, [&] {
-            auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
-            if (v1) {
-                initial.voiceGuidance = v1->getVoiceGuidance();
-            }
-        });
-        readOptional("VPT", true, [&] {
-            auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
-            if (v1) {
-                initial.vpt = v1->getVpt();
-            }
-        });
-        readOptional("sound position", true, [&] {
-            auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
-            if (v1) {
-                initial.soundPosition = v1->getSoundPosition();
-            }
-        });
-    }
+    readOptional("voice guidance", capabilities.voiceGuidance, [&] {
+        auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+        if (v1) {
+            initial.voiceGuidance = v1->getVoiceGuidance();
+        }
+    });
+    readOptional("VPT", capabilities.vpt, [&] {
+        auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+        if (v1) {
+            initial.vpt = v1->getVpt();
+        }
+    });
+    readOptional("sound position", capabilities.soundPosition, [&] {
+        auto* v1 = dynamic_cast<ProtocolV1*>(_protocol.get());
+        if (v1) {
+            initial.soundPosition = v1->getSoundPosition();
+        }
+    });
     readOptional("DSEE", capabilities.dsee, [&] { initial.dsee = _protocol->getDsee(); });
     readOptional("Speak-to-Chat", capabilities.speakToChat, [&] { initial.speakToChat = _protocol->getSpeakToChat(); });
     readOptional("adaptive volume", capabilities.adaptiveVolume, [&] { initial.adaptiveVolume = _protocol->getAdaptiveVolume(); });

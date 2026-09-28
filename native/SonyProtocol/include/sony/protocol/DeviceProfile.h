@@ -44,6 +44,7 @@ struct DeviceCapabilities
     bool clearBass = false;
 
     bool dsee = false;
+    bool dseeExtreme = false;
 
     bool speakToChat = false;
     bool adaptiveVolume = false;

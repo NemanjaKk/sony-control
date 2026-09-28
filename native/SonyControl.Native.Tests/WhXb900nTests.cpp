@@ -73,6 +73,7 @@ TEST(WhXb900nProfile, UsesVerifiedV1Capabilities) {
     EXPECT_TRUE(profile.capabilities.equalizer);
     EXPECT_TRUE(profile.capabilities.clearBass);
     EXPECT_TRUE(profile.capabilities.dsee);
+    EXPECT_FALSE(profile.capabilities.dseeExtreme);
     EXPECT_TRUE(profile.capabilities.connectionQuality);
     EXPECT_TRUE(profile.capabilities.voiceGuidance);
     EXPECT_TRUE(profile.capabilities.vpt);

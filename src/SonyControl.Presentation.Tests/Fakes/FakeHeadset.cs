@@ -19,6 +19,7 @@ internal sealed class FakeHeadset : IHeadset
 
     public static HeadsetFeatures Xm6Features { get; } = new(true, true, true, true, true, true, true, true, true, true, true, true)
     {
+        DseeExtreme = true,
         PowerOff = true,
         AutoPowerOffWhenRemoved = true,
     };

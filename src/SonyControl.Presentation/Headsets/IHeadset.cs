@@ -41,28 +41,24 @@ public interface IHeadset : IDisposable
     /// <summary>
     /// Changes the Bluetooth connection-quality preference.
     /// </summary>
-    Task SetConnectionQualityAsync(bool prioritizeStableConnection) =>
-        Task.FromException(new NotSupportedException("Connection quality is not supported by this headset."));
+    Task SetConnectionQualityAsync(bool prioritizeStableConnection);
 
     Task SetDseeAsync(bool enabled);
 
     /// <summary>
     /// Changes the Virtualphones Technology surround preset.
     /// </summary>
-    Task SetVptAsync(int preset) =>
-        Task.FromException(new NotSupportedException("VPT is not supported by this headset."));
+    Task SetVptAsync(int preset);
 
     /// <summary>
     /// Changes the sound-position preset.
     /// </summary>
-    Task SetSoundPositionAsync(int position) =>
-        Task.FromException(new NotSupportedException("Sound position is not supported by this headset."));
+    Task SetSoundPositionAsync(int position);
 
     /// <summary>
     /// Enables or disables voice guidance.
     /// </summary>
-    Task SetVoiceGuidanceAsync(int value) =>
-        Task.FromException(new NotSupportedException("Voice guidance is not supported by this headset."));
+    Task SetVoiceGuidanceAsync(int value);
 
     /// <summary>
     /// Turns the headset off. The control link drops afterwards.
