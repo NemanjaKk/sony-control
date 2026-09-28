@@ -101,6 +101,25 @@ TEST_F(Xm6Connection, ConnectFailsCleanlyWhenHeadsetNeverAnswers) {
     EXPECT_FALSE(controller->isConnected());
 }
 
+TEST_F(Xm6Connection, ConnectFailsWhenTheLinkDropsDuringTheInitialReads) {
+    // Optional reads shrug off errors, so a headset that drops the link partway through them
+    // used to leave connect() reporting success on a dead link
+    headset->reply({{0x01, 0x00, 0x03, 0x00, 0x30, 0x02, 0x00, 0x00}});           // 00 00 handshake
+    headset->reply({{0x23, 0x09, 85, 0x00, 82, 0x00, 0x64, 0x64}});               // 22 09 battery
+    headset->reply({{0x23, 0x0a, 95, 0x00, 0x1e}});                               // 22 0a case
+    headset->reply({{0x67, 0x19, 0x01, 0x01, 0x01, 0x01, 0x08, 0x00, 0x00}});     // 66 19 noise control
+    headset->reply({{0x57, 0x00, 0x10, 0x0a, 0x06, 0x06, 0x07, 0x08, 0x06, 0x05, 0x06, 0x06, 0x06, 0x06}}); // 56 00 equalizer
+    headset->reply({{0xe7, 0x01, 0x01}});                                         // e6 01 DSEE
+    std::thread dropper([&] {
+        waitUntil([&] { return headset->requests().size() >= 7; });
+        headset->simulateDisconnect();
+    });
+
+    EXPECT_EQ(errorCodeOf([&] { controller->connect(kTestAddress); }), SonyErrorCode::Disconnected);
+    dropper.join();
+    EXPECT_FALSE(controller->isConnected());
+}
+
 TEST_F(Xm6Connection, ConnectFailsWhenLinkIsRefused) {
     headset->setFailConnect(true);
 

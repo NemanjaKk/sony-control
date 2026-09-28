@@ -44,4 +44,10 @@ public sealed class ManagedHeadset
     internal CancellationTokenSource? ConnectLoop { get; set; }
 
     internal Task? ConnectTask { get; set; }
+
+    /// <summary>
+    /// The link dropped while a connect was in flight, so a connect that still reports success
+    /// is treated as failed.
+    /// </summary>
+    internal bool DroppedWhileConnecting { get; set; }
 }

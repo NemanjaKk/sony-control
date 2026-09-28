@@ -233,6 +233,46 @@ public sealed class HeadsetManagerTests
     }
 
     [TestMethod]
+    public async Task LinkDroppingDuringAConnectKeepsBackingOff()
+    {
+        _source.Report(Xm6);
+        var headset = _created["WF-1000XM6"];
+        Assert.IsTrue(await TestWait.UntilAsync(() => _manager.Headsets[0].ConnectionState == HeadsetConnectionState.Connected));
+        headset.RaiseDisconnected();
+
+        // The headset accepts the link, then drops it before the connect finishes
+        var gate = new TaskCompletionSource();
+        headset.ConnectGate = gate;
+        await AdvanceAndExpectAttempts(headset, TimeSpan.FromSeconds(1), 2);
+        headset.RaiseDisconnected();
+        gate.SetException(new COMException("Transport not connected", unchecked((int)0x8007048F)));
+
+        // Next try waits 2 s, not another 1 s
+        await AdvanceAndExpectAttempts(headset, TimeSpan.FromSeconds(1), 2);
+        await AdvanceAndExpectAttempts(headset, TimeSpan.FromSeconds(1), 3);
+    }
+
+    [TestMethod]
+    public async Task ConnectThatSucceedsAfterTheLinkDroppedStillCountsAsFailed()
+    {
+        _source.Report(Xm6);
+        var headset = _created["WF-1000XM6"];
+        Assert.IsTrue(await TestWait.UntilAsync(() => _manager.Headsets[0].ConnectionState == HeadsetConnectionState.Connected));
+        headset.RaiseDisconnected();
+
+        var gate = new TaskCompletionSource();
+        headset.ConnectGate = gate;
+        await AdvanceAndExpectAttempts(headset, TimeSpan.FromSeconds(1), 2);
+        headset.RaiseDisconnected();
+        gate.SetResult();
+
+        Assert.IsTrue(await TestWait.UntilAsync(() => _manager.Headsets[0].ConnectionState == HeadsetConnectionState.Disconnected));
+        await AdvanceAndExpectAttempts(headset, TimeSpan.FromSeconds(1), 2);
+        await AdvanceAndExpectAttempts(headset, TimeSpan.FromSeconds(1), 3);
+        Assert.IsTrue(await TestWait.UntilAsync(() => _manager.Headsets[0].ConnectionState == HeadsetConnectionState.Connected));
+    }
+
+    [TestMethod]
     public async Task WindowsDisconnectStopsRetrying()
     {
         _source.Report(Xm6);

@@ -13,7 +13,8 @@ namespace SonyControl.Presentation.Devices;
 /// A headset is listed from the moment it's seen paired until it's unpaired, whether or not
 /// Windows has it connected right now. While Windows has it connected, the control link is
 /// (re)opened on a schedule of 0 s, 1 s, 2 s, 5 s, then every 30 s until it succeeds; a link that
-/// drops restarts that schedule at 1 s. <see cref="Release"/> lets go of a headset and stays off
+/// drops restarts that schedule at 1 s, and one that drops mid-connect counts as a failed attempt.
+/// <see cref="Release"/> lets go of a headset and stays off
 /// it (remembered across restarts) until <see cref="Reconnect"/>.
 /// </remarks>
 public sealed class HeadsetManager : IDisposable
@@ -287,6 +288,15 @@ public sealed class HeadsetManager : IDisposable
             {
                 return;
             }
+
+            // A drop mid-connect fails that attempt and the running loop backs off; restarting
+            // the schedule here would retry every second for as long as the headset keeps
+            // refusing the link
+            if (headset.ConnectionState == HeadsetConnectionState.Connecting && headset.ConnectLoop is not null)
+            {
+                headset.DroppedWhileConnecting = true;
+                return;
+            }
         }
 
         LogMessages.LinkDropped(_logger, headset.Name);
@@ -354,12 +364,25 @@ public sealed class HeadsetManager : IDisposable
                 }
                 cancellationToken.ThrowIfCancellationRequested();
 
+                lock (_gate)
+                {
+                    headset.DroppedWhileConnecting = false;
+                }
                 SetState(headset, HeadsetConnectionState.Connecting);
                 try
                 {
                     await headset.Headset.ConnectAsync(headset.Id).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
-                    SetState(headset, HeadsetConnectionState.Connected);
+                    // Check for a drop and mark it connected in one step, so a drop can't land between them
+                    lock (_gate)
+                    {
+                        if (headset.DroppedWhileConnecting)
+                        {
+                            throw new IOException("The headset dropped the link while connecting.");
+                        }
+                        headset.ConnectionState = HeadsetConnectionState.Connected;
+                    }
+                    ConnectionStateChanged?.Invoke(this, headset);
                     LogMessages.LinkOpen(_logger, headset.Name);
                     return;
                 }

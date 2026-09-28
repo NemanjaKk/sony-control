@@ -74,6 +74,11 @@ void HeadsetController::connect(const transport::DeviceAddress& address) {
         }
         readInitialState();
         throwIfDisconnectedSince(generation);
+
+        // Optional reads shrug off errors, so check the headset didn't drop the link meanwhile
+        if (!_session->isConnected()) {
+            throw SonyException(SonyErrorCode::Disconnected, "Link dropped while connecting");
+        }
     } catch (...) {
         _session->disconnect();
         throw;
