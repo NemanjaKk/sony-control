@@ -410,6 +410,18 @@ void HeadsetClient::Disconnected(event_token const& token) noexcept {
     m_disconnected.remove(token);
 }
 
+uint32_t HeadsetClient::GetExtendedCapabilityFlags() const {
+    const auto& capabilities = m_controller->profile().capabilities;
+
+    uint32_t flags = 0;
+    flags |= capabilities.voiceGuidance ? 1u << 0 : 0;
+    flags |= capabilities.vpt ? 1u << 1 : 0;
+    flags |= capabilities.soundPosition ? 1u << 2 : 0;
+    flags |= capabilities.powerOff ? 1u << 3 : 0;
+    flags |= capabilities.autoPowerOffWhenRemoved ? 1u << 4 : 0;
+    return flags;
+}
+
 void HeadsetClient::Close() {
     m_controller->disconnect();
 }

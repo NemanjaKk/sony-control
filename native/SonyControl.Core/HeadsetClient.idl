@@ -140,7 +140,8 @@ namespace SonyControl.Core
         Windows.Foundation.IAsyncAction SetAutoPowerOffAsync(Int32 index);
         Windows.Foundation.IAsyncAction SwitchPlaybackAsync(String address);
 
-        // WH-XB900N-specific controls. Appended to preserve existing WinRT method order.
+        // Legacy Controls
+        // Appended To Preserve Existing WinRT Method Order
         Windows.Foundation.IAsyncAction SetConnectionQualityAsync(Boolean prioritizeStableConnection);
         Windows.Foundation.IAsyncAction SetVptAsync(Int32 preset);
         Windows.Foundation.IAsyncAction SetSoundPositionAsync(Int32 position);
@@ -151,5 +152,9 @@ namespace SonyControl.Core
 
         // Raised on a background thread when the link drops unexpectedly.
         event Windows.Foundation.TypedEventHandler<HeadsetClient, Object> Disconnected;
+
+        // Extended Capability Flags
+        // Kept Outside HeadsetCapabilities To Preserve Its WinRT ABI
+        UInt32 GetExtendedCapabilityFlags();
     }
 }

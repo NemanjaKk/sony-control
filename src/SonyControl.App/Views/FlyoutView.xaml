@@ -368,7 +368,7 @@
                     </StackPanel>
                 </ContentControl>
                 <!-- /Codec-gated popup Sound -->
-                <!-- WH-XB900N connection mode is a separate popup section. -->
+                <!-- Connection Mode -->
                 <MenuFlyoutSeparator
                     Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupConnectionSeparator, Mode=OneWay}" />
                 <ContentControl
@@ -408,7 +408,7 @@
                 IsEnabled="{x:Bind ViewModel.CurrentHeadset.CanPowerOffFromPopup, Mode=OneWay, FallbackValue=False}"
                 Style="{StaticResource SubtleButtonStyle}"
                 ToolTipService.ToolTip="Turn off the headphones"
-                Visibility="{x:Bind ViewModel.CurrentHeadset.IsConnected, Mode=OneWay, FallbackValue=Collapsed}">
+                Visibility="{x:Bind ViewModel.CurrentHeadset.CanPowerOffFromPopup, Mode=OneWay, FallbackValue=Collapsed}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontSize="16" Glyph="&#xE7E8;" />
                     <TextBlock VerticalAlignment="Center" Text="Turn off" />

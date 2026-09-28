@@ -23,6 +23,8 @@ DeviceCapabilities unknownModelCapabilities() noexcept {
     capabilities.noiseCancelling = true;
     capabilities.ambientSound = true;
     capabilities.focusOnVoice = true;
+    capabilities.powerOff = true;
+    capabilities.autoPowerOffWhenRemoved = true;
     return capabilities;
 }
 

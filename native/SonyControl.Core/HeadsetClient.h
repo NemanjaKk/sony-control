@@ -50,6 +50,8 @@ struct HeadsetClient : HeadsetClientT<HeadsetClient> {
     event_token Disconnected(Windows::Foundation::TypedEventHandler<Core::HeadsetClient, Windows::Foundation::IInspectable> const& handler);
     void Disconnected(event_token const& token) noexcept;
 
+    uint32_t GetExtendedCapabilityFlags() const;
+
     void Close();
 
 private:

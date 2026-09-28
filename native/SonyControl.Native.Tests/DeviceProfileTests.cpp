@@ -33,6 +33,10 @@ TEST(DeviceProfile, NamesWf1000Xm6) {
 
 TEST(DeviceProfile, UnknownNamesFallBackToUnknownModel) {
     EXPECT_TRUE(DeviceProfileRegistry::identifyModel("Galaxy Buds") == SonyModel::Unknown);
+
+    const auto profile = DeviceProfileRegistry::getProfileForDevice("Galaxy Buds");
+    EXPECT_TRUE(profile.capabilities.powerOff);
+    EXPECT_TRUE(profile.capabilities.autoPowerOffWhenRemoved);
 }
 
 TEST(ErrorMapping, MapsEveryCodeToItsHresult) {

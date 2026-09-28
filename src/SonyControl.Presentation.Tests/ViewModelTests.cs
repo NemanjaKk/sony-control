@@ -156,6 +156,7 @@ public sealed class HeadsetViewModelTests
         Assert.IsTrue(viewModel.HasLegacySpatialControls);
         Assert.IsTrue(viewModel.HasVoiceGuidanceControl);
         Assert.IsFalse(viewModel.CanPowerOffFromPopup);
+        Assert.AreEqual(5, viewModel.DisplayedAutoPowerOffOptions.Count);
         Assert.AreEqual(0, viewModel.ConnectionQualityIndex);
         Assert.AreEqual("SBC", HeadsetViewModel.ConnectionQualityOptions[0]);
         Assert.AreEqual("AAC", HeadsetViewModel.ConnectionQualityOptions[1]);
@@ -164,9 +165,61 @@ public sealed class HeadsetViewModelTests
         Assert.IsTrue(viewModel.CanEditHeadsetSound);
         Assert.IsTrue(viewModel.ShowPopupSoundSection);
         Assert.IsTrue(viewModel.ShowPopupConnectionSeparator);
-        Assert.AreEqual(1, viewModel.VoiceGuidanceIndex);
+        Assert.IsTrue(viewModel.VoiceGuidance);
         Assert.AreEqual(0, viewModel.VptPresetIndex);
         Assert.AreEqual(1, viewModel.SoundPositionIndex);
+    }
+
+    [TestMethod]
+    public void LegacyControlsFollowFeatureFlagsInsteadOfModelName()
+    {
+        using var capableHeadset = new FakeHeadset("Feature Test", FakeHeadset.Xb900nFeatures)
+        {
+            State = HeadsetSnapshot.Empty with
+            {
+                Codec = "SBC",
+                ConnectionQuality = 1,
+                VoiceGuidance = 1,
+                Vpt = 0,
+                SoundPosition = 0,
+            },
+        };
+        var capableManaged = new ManagedHeadset("feature-test", "AC:80:0A:00:09:01", "Feature Test", capableHeadset)
+        {
+            ConnectionState = HeadsetConnectionState.Connected,
+            IsWindowsConnected = true,
+        };
+        using var capableViewModel = new HeadsetViewModel(
+            capableManaged,
+            _settings,
+            new LowBatteryMonitor(_settings, _notifications),
+            _time,
+            NullLogger.Instance);
+
+        Assert.IsTrue(capableViewModel.HasConnectionQualityControl);
+        Assert.IsTrue(capableViewModel.HasLegacySpatialControls);
+        Assert.IsTrue(capableViewModel.HasVoiceGuidanceControl);
+        Assert.IsFalse(capableViewModel.CanPowerOffFromPopup);
+        Assert.AreEqual(5, capableViewModel.DisplayedAutoPowerOffOptions.Count);
+
+        using var namedHeadset = new FakeHeadset("WH-XB900N", FakeHeadset.Xm6Features);
+        var namedManaged = new ManagedHeadset("name-only", "AC:80:0A:00:09:02", "WH-XB900N", namedHeadset)
+        {
+            ConnectionState = HeadsetConnectionState.Connected,
+            IsWindowsConnected = true,
+        };
+        using var namedViewModel = new HeadsetViewModel(
+            namedManaged,
+            _settings,
+            new LowBatteryMonitor(_settings, _notifications),
+            _time,
+            NullLogger.Instance);
+
+        Assert.IsFalse(namedViewModel.HasConnectionQualityControl);
+        Assert.IsFalse(namedViewModel.HasLegacySpatialControls);
+        Assert.IsFalse(namedViewModel.HasVoiceGuidanceControl);
+        Assert.IsTrue(namedViewModel.CanPowerOffFromPopup);
+        Assert.AreEqual(6, namedViewModel.DisplayedAutoPowerOffOptions.Count);
     }
 
     [TestMethod]
@@ -292,6 +345,89 @@ public sealed class HeadsetViewModelTests
 
         Assert.IsTrue(await TestWait.UntilAsync(() => viewModel.DseeIndex == 0));
         Assert.IsTrue(await TestWait.UntilAsync(() => viewModel.CanChangeConnectionMode));
+    }
+
+    [TestMethod]
+    public async Task ConnectionModeCodecWaitUsesFakeTime()
+    {
+        using var headset = new FakeHeadset("WH-XB900N", FakeHeadset.Xb900nFeatures)
+        {
+            State = HeadsetSnapshot.Empty with
+            {
+                Codec = "AAC",
+                ConnectionQuality = 0,
+            },
+        };
+        var managed = new ManagedHeadset("device-xb900n", "AC:80:0A:00:09:00", "WH-XB900N", headset)
+        {
+            ConnectionState = HeadsetConnectionState.Connected,
+            IsWindowsConnected = true,
+        };
+        using var viewModel = new HeadsetViewModel(
+            managed,
+            _settings,
+            new LowBatteryMonitor(_settings, _notifications),
+            _time,
+            NullLogger.Instance);
+
+        viewModel.ConnectionQualityIndex = 2;
+        _time.Advance(TimeSpan.FromSeconds(10));
+
+        Assert.IsTrue(await TestWait.UntilAsync(() => viewModel.ErrorMessage is not null));
+        Assert.IsTrue(viewModel.CanChangeConnectionMode);
+    }
+
+    [TestMethod]
+    public async Task SpatialSelectionWhileACommandIsInFlightSnapsBackToThePendingValue()
+    {
+        using var headset = new FakeHeadset("WH-XB900N", FakeHeadset.Xb900nFeatures)
+        {
+            State = HeadsetSnapshot.Empty with
+            {
+                Codec = "SBC",
+                ConnectionQuality = 1,
+                Vpt = 0,
+                SoundPosition = 0,
+            },
+            HoldCommands = true,
+        };
+        var managed = new ManagedHeadset("device-xb900n", "AC:80:0A:00:09:00", "WH-XB900N", headset)
+        {
+            ConnectionState = HeadsetConnectionState.Connected,
+            IsWindowsConnected = true,
+        };
+        using var viewModel = new HeadsetViewModel(
+            managed,
+            _settings,
+            new LowBatteryMonitor(_settings, _notifications),
+            _time,
+            NullLogger.Instance);
+        var resetNotifications = 0;
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(HeadsetViewModel.VptPresetIndex))
+            {
+                resetNotifications++;
+            }
+        };
+
+        viewModel.VptPresetIndex = 1;
+        headset.RaiseEcho(headset.State with { Vpt = 0, SoundPosition = 0 });
+        Assert.AreEqual(1, viewModel.VptPresetIndex);
+
+        resetNotifications = 0;
+        viewModel.VptPresetIndex = 2;
+
+        Assert.AreEqual(1, viewModel.VptPresetIndex);
+        Assert.AreEqual(1, resetNotifications);
+        Assert.IsFalse(viewModel.CanChangeSpatialEffect);
+        Assert.AreEqual(1, headset.Commands.Count);
+
+        headset.CompleteHeldCommands();
+
+        Assert.IsTrue(await TestWait.UntilAsync(() => viewModel.CanChangeSpatialEffect));
+        Assert.AreEqual(1, viewModel.VptPresetIndex);
+        Assert.AreEqual(0, viewModel.SoundPositionIndex);
     }
 
     [TestMethod]
@@ -775,7 +911,8 @@ public sealed class FlyoutViewModelTests
             _manager,
             new FlyoutNavigator(_settings),
             managed => new HeadsetViewModel(managed, _settings, monitor, _time, NullLogger.Instance),
-            _audio);
+            _audio,
+            _time);
         _manager.Start();
     }
 
@@ -908,7 +1045,13 @@ public sealed class FlyoutViewModelTests
 
         _source.Report(Xb900n with { IsConnected = false });
 
-        Assert.IsTrue(await TestWait.UntilAsync(() => _audio.Requests.Count == 1));
+        for (var attempt = 0; attempt < 10 && _audio.Requests.Count == 0; attempt++)
+        {
+            _time.Advance(TimeSpan.FromMilliseconds(100));
+            await Task.Yield();
+        }
+
+        Assert.AreEqual(1, _audio.Requests.Count);
         Assert.AreEqual("AC:80:0A:00:09:00", _audio.Requests[0]);
     }
 
@@ -1119,7 +1262,8 @@ public sealed class SettingsViewModelTests
             _manager,
             new FlyoutNavigator(_settings),
             managed => new HeadsetViewModel(managed, _settings, monitor, time, NullLogger.Instance),
-            new FakeBluetoothAudio());
+            new FakeBluetoothAudio(),
+            time);
         _viewModel = new SettingsViewModel(_flyout, _settings, _logLevel, _startup, _themes.Add, _nativeDebug.Add, _ => { }, "C:\\Logs", NullLogger.Instance);
         _manager.Start();
     }
@@ -1197,7 +1341,8 @@ public sealed class SettingsViewModelTests
                 manager,
                 new FlyoutNavigator(settings),
                 managed => new HeadsetViewModel(managed, settings, monitor, time, NullLogger.Instance),
-                new FakeBluetoothAudio());
+                new FakeBluetoothAudio(),
+                time);
             var viewModel = new SettingsViewModel(flyout, settings, new LogLevelSwitch(), new FakeStartupTaskService(), _ => { }, _ => { }, _ => { }, "C:\\Logs", NullLogger.Instance);
             manager.Start();
 

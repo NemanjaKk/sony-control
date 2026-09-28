@@ -57,8 +57,16 @@ struct DeviceCapabilities
 
     bool multipoint = false;
 
-    // WH-XB900N-specific playback connection preference support.
     bool connectionQuality = false;
+    bool voiceGuidance = false;
+    bool vpt = false;
+    bool soundPosition = false;
+
+    // Power-Off Support
+    bool powerOff = false;
+
+    // Auto Power-Off Option Set
+    bool autoPowerOffWhenRemoved = false;
 };
 
 struct DeviceProfile

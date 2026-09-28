@@ -68,7 +68,35 @@ public sealed record HeadsetFeatures(
     bool FirmwareInfo,
     bool CodecInfo)
 {
+    /// <summary>
+    /// Supports changing the Bluetooth connection-quality mode.
+    /// </summary>
     public bool ConnectionQuality { get; init; }
+
+    /// <summary>
+    /// Supports headset voice guidance.
+    /// </summary>
+    public bool VoiceGuidance { get; init; }
+
+    /// <summary>
+    /// Supports Virtualphones Technology surround presets.
+    /// </summary>
+    public bool Vpt { get; init; }
+
+    /// <summary>
+    /// Supports sound-position presets.
+    /// </summary>
+    public bool SoundPosition { get; init; }
+
+    /// <summary>
+    /// Supports the explicit power-off command.
+    /// </summary>
+    public bool PowerOff { get; init; }
+
+    /// <summary>
+    /// Auto power-off includes the When taken off option.
+    /// </summary>
+    public bool AutoPowerOffWhenRemoved { get; init; }
 }
 
 /// <summary>

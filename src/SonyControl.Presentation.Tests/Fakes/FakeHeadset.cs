@@ -17,13 +17,26 @@ internal sealed class FakeHeadset : IHeadset
         Features = features ?? Xm6Features;
     }
 
-    public static HeadsetFeatures Xm6Features { get; } = new(true, true, true, true, true, true, true, true, true, true, true, true);
+    public static HeadsetFeatures Xm6Features { get; } = new(true, true, true, true, true, true, true, true, true, true, true, true)
+    {
+        PowerOff = true,
+        AutoPowerOffWhenRemoved = true,
+    };
 
-    public static HeadsetFeatures Xm4Features { get; } = new(false, true, true, true, true, true, false, false, false, false, true, true);
+    public static HeadsetFeatures Xm4Features { get; } = new(false, true, true, true, true, true, false, false, false, false, true, true)
+    {
+        PowerOff = true,
+        AutoPowerOffWhenRemoved = true,
+    };
 
     public static HeadsetFeatures Xb900nFeatures { get; } = new(false, true, true, true, true, true, true, false, false, true, true, true)
     {
         ConnectionQuality = true,
+        VoiceGuidance = true,
+        Vpt = true,
+        SoundPosition = true,
+        PowerOff = false,
+        AutoPowerOffWhenRemoved = false,
     };
 
     public event EventHandler<HeadsetSnapshot>? StateChanged;

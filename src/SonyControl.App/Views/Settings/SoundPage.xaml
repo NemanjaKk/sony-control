@@ -85,17 +85,21 @@
                         </Grid>
                     </Border>
 
-                    <!-- WH-XB900N legacy spatial controls -->
+                    <!-- Legacy Spatial Controls -->
                     <Border
                         Style="{StaticResource SettingsCardStyle}"
-                        Visibility="{x:Bind ViewModel.SelectedHeadset.HasLegacySpatialControls, Mode=OneWay}">
+                        Visibility="{x:Bind ViewModel.SelectedHeadset.Features.Vpt, Mode=OneWay}">
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock VerticalAlignment="Center" Text="VPT / Surround" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Surround (VPT)" />
+                                <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="Adds a virtual surround effect to your audio." />
+                            </StackPanel>
                             <ComboBox
                                 Grid.Column="1"
                                 MinWidth="180"
-                                AutomationProperties.Name="VPT / Surround"
-                                IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanEditHeadsetSound, Mode=OneWay}"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Surround (VPT)"
+                                IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanChangeSpatialEffect, Mode=OneWay}"
                                 ItemsSource="{x:Bind vm:HeadsetViewModel.VptPresetOptions}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedHeadset.VptPresetIndex, Mode=TwoWay}" />
                         </Grid>
@@ -103,14 +107,18 @@
 
                     <Border
                         Style="{StaticResource SettingsCardStyle}"
-                        Visibility="{x:Bind ViewModel.SelectedHeadset.HasLegacySpatialControls, Mode=OneWay}">
+                        Visibility="{x:Bind ViewModel.SelectedHeadset.Features.SoundPosition, Mode=OneWay}">
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock VerticalAlignment="Center" Text="Sound position" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Sound position" />
+                                <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="Moves the apparent direction of the sound." />
+                            </StackPanel>
                             <ComboBox
                                 Grid.Column="1"
                                 MinWidth="180"
+                                VerticalAlignment="Center"
                                 AutomationProperties.Name="Sound position"
-                                IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanEditHeadsetSound, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanChangeSpatialEffect, Mode=OneWay}"
                                 ItemsSource="{x:Bind vm:HeadsetViewModel.SoundPositionOptions}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedHeadset.SoundPositionIndex, Mode=TwoWay}" />
                         </Grid>

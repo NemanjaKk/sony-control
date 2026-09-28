@@ -17,7 +17,7 @@ public sealed class WinRtHeadset : IHeadset
     public WinRtHeadset(string deviceName)
     {
         _client = new Core.HeadsetClient(deviceName);
-        Features = ToFeatures(_client.Capabilities);
+        Features = ToFeatures(_client.Capabilities, _client.GetExtendedCapabilityFlags());
 
         _client.StateChanged += OnStateChanged;
         _client.Disconnected += OnDisconnected;
@@ -125,7 +125,13 @@ public sealed class WinRtHeadset : IHeadset
 
     private static int? Earbud(int level) => level > 0 ? level : null;
 
-    private static HeadsetFeatures ToFeatures(Core.HeadsetCapabilities capabilities) => new(
+    private const uint VoiceGuidanceCapability = 1u << 0;
+    private const uint VptCapability = 1u << 1;
+    private const uint SoundPositionCapability = 1u << 2;
+    private const uint PowerOffCapability = 1u << 3;
+    private const uint AutoPowerOffWhenRemovedCapability = 1u << 4;
+
+    private static HeadsetFeatures ToFeatures(Core.HeadsetCapabilities capabilities, uint extendedCapabilities) => new(
         capabilities.DualBattery,
         capabilities.NoiseCancelling,
         capabilities.AmbientSound,
@@ -140,6 +146,11 @@ public sealed class WinRtHeadset : IHeadset
         capabilities.CodecInfo)
     {
         ConnectionQuality = capabilities.ConnectionQuality,
+        VoiceGuidance = (extendedCapabilities & VoiceGuidanceCapability) != 0,
+        Vpt = (extendedCapabilities & VptCapability) != 0,
+        SoundPosition = (extendedCapabilities & SoundPositionCapability) != 0,
+        PowerOff = (extendedCapabilities & PowerOffCapability) != 0,
+        AutoPowerOffWhenRemoved = (extendedCapabilities & AutoPowerOffWhenRemovedCapability) != 0,
     };
 
     private void OnStateChanged(Core.HeadsetClient sender, Core.HeadsetState args) =>

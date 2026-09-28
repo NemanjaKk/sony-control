@@ -49,7 +49,7 @@
                         </Grid>
                     </Border>
 
-                    <!-- WH-XB900N Voice Guidance -->
+                    <!-- Voice Guidance -->
                     <Border
                         Style="{StaticResource SettingsCardStyle}"
                         Visibility="{x:Bind ViewModel.SelectedHeadset.HasVoiceGuidanceControl, Mode=OneWay}">
@@ -58,18 +58,17 @@
                                 <TextBlock Text="Voice guidance" />
                                 <TextBlock
                                     Style="{StaticResource SecondaryTextStyle}"
-                                    Text="Enable or disable headset voice guidance." />
+                                    Text="Plays spoken status and setting updates." />
                             </StackPanel>
-                            <ComboBox
+                            <ToggleSwitch
                                 Grid.Column="1"
-                                MinWidth="180"
                                 AutomationProperties.Name="Voice guidance"
-                                ItemsSource="{x:Bind vm:HeadsetViewModel.VoiceGuidanceOptions}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedHeadset.VoiceGuidanceIndex, Mode=TwoWay}" />
+                                IsOn="{x:Bind ViewModel.SelectedHeadset.VoiceGuidance, Mode=TwoWay}"
+                                Style="{StaticResource CardToggleSwitchStyle}" />
                         </Grid>
                     </Border>
 
-                    <!-- WH-XB900N Bluetooth connection quality -->
+                    <!-- Bluetooth Connection Quality -->
                     <Border
                         Style="{StaticResource SettingsCardStyle}"
                         Visibility="{x:Bind ViewModel.SelectedHeadset.HasConnectionQualityControl, Mode=OneWay}">
@@ -78,11 +77,12 @@
                                 <TextBlock Text="Connection mode" />
                                 <TextBlock
                                     Style="{StaticResource SecondaryTextStyle}"
-                                    Text="Choose SBC, AAC, or High Quality. The active codec is shown by the headset status." />
+                                    Text="Chooses SBC, AAC, or High Quality for Bluetooth audio." />
                             </StackPanel>
                             <ComboBox
                                 Grid.Column="1"
                                 MinWidth="180"
+                                VerticalAlignment="Center"
                                 AutomationProperties.Name="Connection mode"
                                 IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanChangeConnectionMode, Mode=OneWay}"
                                 ItemsSource="{x:Bind vm:HeadsetViewModel.ConnectionQualityOptions}"

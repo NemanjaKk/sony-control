@@ -38,17 +38,29 @@ public interface IHeadset : IDisposable
 
     Task SetEqualizerCustomAsync(EqualizerSetting value);
 
+    /// <summary>
+    /// Changes the Bluetooth connection-quality preference.
+    /// </summary>
     Task SetConnectionQualityAsync(bool prioritizeStableConnection) =>
         Task.FromException(new NotSupportedException("Connection quality is not supported by this headset."));
 
     Task SetDseeAsync(bool enabled);
 
+    /// <summary>
+    /// Changes the Virtualphones Technology surround preset.
+    /// </summary>
     Task SetVptAsync(int preset) =>
         Task.FromException(new NotSupportedException("VPT is not supported by this headset."));
 
+    /// <summary>
+    /// Changes the sound-position preset.
+    /// </summary>
     Task SetSoundPositionAsync(int position) =>
         Task.FromException(new NotSupportedException("Sound position is not supported by this headset."));
 
+    /// <summary>
+    /// Enables or disables voice guidance.
+    /// </summary>
     Task SetVoiceGuidanceAsync(int value) =>
         Task.FromException(new NotSupportedException("Voice guidance is not supported by this headset."));
 

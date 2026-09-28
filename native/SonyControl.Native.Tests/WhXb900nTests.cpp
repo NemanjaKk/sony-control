@@ -74,6 +74,11 @@ TEST(WhXb900nProfile, UsesVerifiedV1Capabilities) {
     EXPECT_TRUE(profile.capabilities.clearBass);
     EXPECT_TRUE(profile.capabilities.dsee);
     EXPECT_TRUE(profile.capabilities.connectionQuality);
+    EXPECT_TRUE(profile.capabilities.voiceGuidance);
+    EXPECT_TRUE(profile.capabilities.vpt);
+    EXPECT_TRUE(profile.capabilities.soundPosition);
+    EXPECT_FALSE(profile.capabilities.powerOff);
+    EXPECT_FALSE(profile.capabilities.autoPowerOffWhenRemoved);
     EXPECT_TRUE(profile.capabilities.autoPowerOff);
     EXPECT_FALSE(profile.capabilities.wearSensor);
     EXPECT_FALSE(profile.capabilities.multipoint);

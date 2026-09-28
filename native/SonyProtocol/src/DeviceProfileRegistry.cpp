@@ -36,7 +36,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = false,
                 .codecInfo = false,
                 .wearSensor = false,
-                .multipoint = false
+                .multipoint = false,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WH-XB900N (V1 protocol). Hardware-verified on firmware 4.5.2:
@@ -61,7 +63,12 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .codecInfo = true,
                 .wearSensor = false,
                 .multipoint = false,
-                .connectionQuality = true
+                .connectionQuality = true,
+                .voiceGuidance = true,
+                .vpt = true,
+                .soundPosition = true,
+                .powerOff = false,
+                .autoPowerOffWhenRemoved = false
             }
         },
         // WH-1000XM4 (V1 protocol, ANC/Ambient, Single battery, wear sensor, multipoint)
@@ -85,7 +92,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WH-1000XM5 (V2 protocol, Full capability set)
@@ -107,7 +116,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WH-1000XM6 (V2 protocol, Full capability set)
@@ -129,7 +140,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WF-1000XM4 (V2 protocol, TWS dual battery + case, speak to chat, wear sensor)
@@ -151,7 +164,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WF-1000XM5 (V2 protocol, TWS dual battery + case, adaptive volume, wear sensor)
@@ -173,7 +188,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WF-1000XM6 (V2 protocol, TWS flagship). A real XM6 (firmware 1.6.0) doesn't answer
@@ -196,7 +213,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
 
@@ -219,7 +238,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = false,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // ULT WEAR / WH-ULT900N (V2 protocol, over-ear, wear sensor, multipoint)
@@ -241,7 +262,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // LinkBuds S / WF-LS900N (V2 protocol, TWS dual battery, speak-to-chat, wear sensor)
@@ -263,7 +286,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         }
     };
@@ -342,7 +367,10 @@ DeviceProfile DeviceProfileRegistry::getProfileForDevice(std::string_view device
     return DeviceProfile{
         .model = SonyModel::Unknown,
         .protocol = SonyProtocolVersion::V1,
-        .capabilities = DeviceCapabilities{}
+        .capabilities = DeviceCapabilities{
+            .powerOff = true,
+            .autoPowerOffWhenRemoved = true
+        }
     };
 }
 

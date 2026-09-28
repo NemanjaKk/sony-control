@@ -12,10 +12,12 @@ using SonyControl.Presentation.Settings;
 
 namespace SonyControl.Presentation.ViewModels;
 
-internal sealed class AudioReconnectRequestedEventArgs : EventArgs
+internal sealed class AudioReconnectRequestedEventArgs(CancellationToken cancellationToken) : EventArgs
 {
     private readonly TaskCompletionSource<bool> _completion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public CancellationToken CancellationToken { get; } = cancellationToken;
 
     public Task<bool> Completion => _completion.Task;
 
@@ -36,6 +38,9 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 {
     public static readonly TimeSpan SliderInterval = TimeSpan.FromMilliseconds(150);
     public static readonly TimeSpan ErrorDuration = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ConnectionModeCodecTimeout = TimeSpan.FromSeconds(10);
+
+    private static readonly TimeSpan ConnectionModePollInterval = TimeSpan.FromMilliseconds(100);
 
     /// <summary>
     /// How often the battery is re-read while one earbud is missing.
@@ -52,6 +57,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private readonly ILogger _logger;
     private readonly UiContext _ui = new();
     private readonly Throttler _noiseThrottler;
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
 
     private HeadsetSnapshot _snapshot = HeadsetSnapshot.Empty;
     private HeadsetConnectionState _connectionState;
@@ -62,7 +68,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private int _dseeIndex;
     private int _connectionQualityIndex = -1;
     private bool _connectionQualityBusy;
-    private int _voiceGuidanceIndex = -1;
+    private bool _voiceGuidance;
     private int _vptPresetIndex = -1;
     private int _soundPositionIndex = -1;
     private bool _spatialCommandInFlight;
@@ -450,8 +456,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     public static IReadOnlyList<string> DseeOptions { get; } = ["Off", "Auto"];
 
-    public bool HasConnectionQualityControl =>
-        ModelName == "WH-XB900N" && Features.ConnectionQuality;
+    public bool HasConnectionQualityControl => Features.ConnectionQuality;
 
     public static IReadOnlyList<string> ConnectionQualityOptions { get; } =
         ["SBC", "AAC", "High Quality"];
@@ -480,6 +485,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             _ => -1,
         };
     }
+
     public int ConnectionQualityIndex
     {
         get => _connectionQualityIndex;
@@ -490,6 +496,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 if (SetProperty(ref _connectionQualityIndex, value))
                 {
                     OnPropertyChanged(nameof(CanEditHeadsetSound));
+                    OnPropertyChanged(nameof(CanChangeSpatialEffect));
                 }
                 return;
             }
@@ -497,24 +504,32 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             if (!HasConnectionQualityControl ||
                 !IsConnected ||
                 _connectionQualityBusy ||
-                value is < 0 or > 2 ||
-                !SetProperty(ref _connectionQualityIndex, value))
+                value is < 0 or > 2)
+            {
+                OnPropertyChanged(nameof(ConnectionQualityIndex));
+                return;
+            }
+
+            if (!SetProperty(ref _connectionQualityIndex, value))
             {
                 return;
             }
 
             OnPropertyChanged(nameof(CanEditHeadsetSound));
+            OnPropertyChanged(nameof(CanChangeSpatialEffect));
             _ = ApplyConnectionQualityAsync(value);
         }
     }
 
     private async Task ApplyConnectionQualityAsync(int requestedIndex)
     {
+        var cancellationToken = _lifetimeCancellation.Token;
         _connectionQualityBusy = true;
         _ui.Post(() =>
         {
             OnPropertyChanged(nameof(CanChangeConnectionMode));
             OnPropertyChanged(nameof(CanEditHeadsetSound));
+            OnPropertyChanged(nameof(CanChangeSpatialEffect));
         });
 
         try
@@ -550,18 +565,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             {
                 await _headset.SetConnectionQualityAsync(true).ConfigureAwait(false);
 
-                for (var attempt = 0;
-                     attempt < 100 &&
-                     !string.Equals(_snapshot.Codec, "SBC", StringComparison.Ordinal);
-                     attempt++)
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
-                }
-
-                if (!string.Equals(_snapshot.Codec, "SBC", StringComparison.Ordinal))
-                {
-                    throw new TimeoutException("WH-XB900N did not report SBC while switching connection mode.");
-                }
+                await WaitForCodecAsync("SBC", cancellationToken).ConfigureAwait(false);
             }
 
             // SBC -> Sony Stability.
@@ -570,18 +574,21 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
             if (requestedIndex == 1)
             {
-                var request = new AudioReconnectRequestedEventArgs();
+                var request = new AudioReconnectRequestedEventArgs(cancellationToken);
                 if (AudioReconnectRequested is null)
                 {
                     throw new InvalidOperationException("No Windows Bluetooth reconnect handler is available.");
                 }
 
                 AudioReconnectRequested.Invoke(this, request);
-                if (!await request.Completion.ConfigureAwait(false))
+                if (!await request.Completion.WaitAsync(cancellationToken).ConfigureAwait(false))
                 {
                     throw new InvalidOperationException("Windows did not complete the Bluetooth reconnect request.");
                 }
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -595,15 +602,37 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         finally
         {
             _connectionQualityBusy = false;
-            _ui.Post(() =>
+            if (!cancellationToken.IsCancellationRequested)
             {
-                OnPropertyChanged(nameof(CanChangeConnectionMode));
-                OnPropertyChanged(nameof(CanEditHeadsetSound));
-            });
+                _ui.Post(() =>
+                {
+                    OnPropertyChanged(nameof(CanChangeConnectionMode));
+                    OnPropertyChanged(nameof(CanEditHeadsetSound));
+                    OnPropertyChanged(nameof(CanChangeSpatialEffect));
+                });
+            }
         }
     }
 
-    public bool HasLegacySpatialControls => ModelName == "WH-XB900N";
+    private async Task WaitForCodecAsync(string codec, CancellationToken cancellationToken)
+    {
+        var deadline = _timeProvider.GetUtcNow() + ConnectionModeCodecTimeout;
+        while (!string.Equals(_snapshot.Codec, codec, StringComparison.Ordinal))
+        {
+            var remaining = deadline - _timeProvider.GetUtcNow();
+            if (remaining <= TimeSpan.Zero)
+            {
+                throw new TimeoutException($"The headphones did not report {codec} while switching connection mode.");
+            }
+
+            await Task.Delay(
+                remaining < ConnectionModePollInterval ? remaining : ConnectionModePollInterval,
+                _timeProvider,
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public bool HasLegacySpatialControls => Features.Vpt || Features.SoundPosition;
 
     public bool CanChangeConnectionMode =>
         HasConnectionQualityControl && IsConnected && !_connectionQualityBusy;
@@ -613,8 +642,10 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         (!HasConnectionQualityControl ||
          (!_connectionQualityBusy && _snapshot.Codec is "SBC" or "AAC"));
 
-    // Compact popup behavior: unavailable WH-XB900N sound effects disappear
-    // when a non-SBC/AAC codec is actually reported.
+    public bool CanChangeSpatialEffect => CanEditHeadsetSound && !_spatialCommandInFlight;
+
+    // Compact Popup Behavior: Unavailable Connection-Mode Sound Effects Disappear
+    // When A Non-SBC/AAC Codec Is Actually Reported
     public bool ShowPopupEqualizer => Features.Equalizer;
     public bool ShowPopupDsee => Features.Dsee;
     public bool ShowPopupSoundSection =>
@@ -645,24 +676,19 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var previous = _vptPresetIndex;
-            if (!HasLegacySpatialControls ||
+            if (!Features.Vpt ||
                 !CanEditHeadsetSound ||
                 _spatialCommandInFlight ||
-                value is < 0 or > 4 ||
-                !SetProperty(ref _vptPresetIndex, value))
+                value is < 0 or > 4)
             {
+                OnPropertyChanged(nameof(VptPresetIndex));
                 return;
             }
 
-            _ = ApplySpatialAsync(
-                () => _headset.SetVptAsync(value),
-                () =>
-                {
-                    _vptPresetIndex = previous;
-                    OnPropertyChanged(nameof(VptPresetIndex));
-                },
-                resetPosition: value != 0);
+            if (SetProperty(ref _vptPresetIndex, value))
+            {
+                _ = ApplySpatialAsync(() => _headset.SetVptAsync(value));
+            }
         }
     }
 
@@ -677,89 +703,79 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var previous = _soundPositionIndex;
-            if (!HasLegacySpatialControls ||
+            if (!Features.SoundPosition ||
                 !CanEditHeadsetSound ||
                 _spatialCommandInFlight ||
-                value is < 0 or > 5 ||
-                !SetProperty(ref _soundPositionIndex, value))
+                value is < 0 or > 5)
             {
+                OnPropertyChanged(nameof(SoundPositionIndex));
                 return;
             }
 
-            _ = ApplySpatialAsync(
-                () => _headset.SetSoundPositionAsync(SoundPositionCodes[value]),
-                () =>
-                {
-                    _soundPositionIndex = previous;
-                    OnPropertyChanged(nameof(SoundPositionIndex));
-                },
-                resetVpt: value != 0);
+            if (SetProperty(ref _soundPositionIndex, value))
+            {
+                _ = ApplySpatialAsync(() => _headset.SetSoundPositionAsync(SoundPositionCodes[value]));
+            }
         }
     }
 
-    private async Task ApplySpatialAsync(
-        Func<Task> apply,
-        Action revert,
-        bool resetPosition = false,
-        bool resetVpt = false)
+    private async Task ApplySpatialAsync(Func<Task> apply)
     {
         _spatialCommandInFlight = true;
+        _ui.Post(() => OnPropertyChanged(nameof(CanChangeSpatialEffect)));
+
+        Exception? failure = null;
         try
         {
             await apply().ConfigureAwait(false);
-            _ui.Post(() =>
-            {
-                if (resetPosition)
-                {
-                    _soundPositionIndex = 0;
-                    OnPropertyChanged(nameof(SoundPositionIndex));
-                }
-                if (resetVpt)
-                {
-                    _vptPresetIndex = 0;
-                    OnPropertyChanged(nameof(VptPresetIndex));
-                }
-            });
         }
         catch (Exception ex)
         {
+            failure = ex;
             LogMessages.CommandFailed(_logger, ex, "sound effect", DeviceName);
-            _ui.Post(() =>
-            {
-                revert();
-                ShowError(HeadsetErrorMessages.Describe(ex));
-            });
         }
         finally
         {
-            _spatialCommandInFlight = false;
+            _ui.Post(() =>
+            {
+                _spatialCommandInFlight = false;
+                ApplySnapshot(_headset.State);
+                OnPropertyChanged(nameof(CanChangeSpatialEffect));
+                if (failure is not null)
+                {
+                    ShowError(HeadsetErrorMessages.Describe(failure));
+                }
+            });
         }
     }
 
-    public bool HasVoiceGuidanceControl => ModelName == "WH-XB900N";
+    public bool HasVoiceGuidanceControl => Features.VoiceGuidance;
 
-    public static IReadOnlyList<string> VoiceGuidanceOptions { get; } = ["Off", "On"];
-
-    public int VoiceGuidanceIndex
+    public bool VoiceGuidance
     {
-        get => _voiceGuidanceIndex;
+        get => _voiceGuidance;
         set
         {
-            if (!HasVoiceGuidanceControl ||
-                !IsConnected ||
-                value is < 0 or > 1 ||
-                !SetProperty(ref _voiceGuidanceIndex, value) ||
-                _applying)
+            if (_applying)
             {
+                SetProperty(ref _voiceGuidance, value);
                 return;
             }
 
-            _ = RunCommandAsync(() => _headset.SetVoiceGuidanceAsync(value), "voice guidance");
+            if (!HasVoiceGuidanceControl || !IsConnected)
+            {
+                OnPropertyChanged(nameof(VoiceGuidance));
+                return;
+            }
+
+            if (SetProperty(ref _voiceGuidance, value))
+            {
+                _ = RunCommandAsync(() => _headset.SetVoiceGuidanceAsync(value ? 1 : 0), "voice guidance");
+            }
         }
     }
 
-    public bool CanPowerOffFromPopup => ModelName != "WH-XB900N";
+    public bool CanPowerOffFromPopup => IsConnected && Features.PowerOff;
 
     public double ClearBass
     {
@@ -870,11 +886,11 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     public static IReadOnlyList<string> AutoPowerOffOptions { get; } =
         ["Off", "After 5 minutes", "After 30 minutes", "After 1 hour", "After 3 hours", "When taken off"];
 
-    private static IReadOnlyList<string> WhXb900nAutoPowerOffOptions { get; } =
+    private static IReadOnlyList<string> TimedAutoPowerOffOptions { get; } =
         ["Off", "After 5 minutes", "After 30 minutes", "After 1 hour", "After 3 hours"];
 
     public IReadOnlyList<string> DisplayedAutoPowerOffOptions =>
-        ModelName == "WH-XB900N" ? WhXb900nAutoPowerOffOptions : AutoPowerOffOptions;
+        Features.AutoPowerOffWhenRemoved ? AutoPowerOffOptions : TimedAutoPowerOffOptions;
 
     // =========================================================================
     // ERRORS
@@ -995,6 +1011,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(CanChangeConnectionMode));
         OnPropertyChanged(nameof(CanEditHeadsetSound));
+        OnPropertyChanged(nameof(CanChangeSpatialEffect));
+        OnPropertyChanged(nameof(CanPowerOffFromPopup));
         OnPropertyChanged(nameof(ShowPopupSoundSection));
         OnPropertyChanged(nameof(ShowPopupConnectionSeparator));
         OnPropertyChanged(nameof(IsConnecting));
@@ -1020,11 +1038,13 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _lifetimeCancellation.Cancel();
         _headset.StateChanged -= OnHeadsetStateChanged;
         _noiseThrottler.Dispose();
         _errorTimer?.Dispose();
         _missingEarbudTimer?.Dispose();
         _connectTimer?.Dispose();
+        _lifetimeCancellation.Dispose();
     }
 
     private static string Percent(int? level) => level is null ? NoValue : $"{level}%";
@@ -1048,6 +1068,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
     private void ApplySnapshot(HeadsetSnapshot snapshot)
     {
         var skipNoise = _noiseThrottler.HasPending || Volatile.Read(ref _noiseCommandsInFlight) > 0;
+        var skipSpatial = _spatialCommandInFlight;
 
         // Taking an earbud out briefly reports neither side; keep the last levels until the
         // real ones follow, so the battery row doesn't blank out
@@ -1102,10 +1123,13 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             ConnectionQualityIndex = HasConnectionQualityControl ? ConnectionModeIndexFor(snapshot) : -1;
             if (snapshot.VoiceGuidance is >= 0 and <= 1)
             {
-                VoiceGuidanceIndex = snapshot.VoiceGuidance;
+                VoiceGuidance = snapshot.VoiceGuidance == 1;
             }
-            VptPresetIndex = snapshot.Vpt is >= 0 and <= 4 ? snapshot.Vpt : -1;
-            SoundPositionIndex = Array.IndexOf(SoundPositionCodes, snapshot.SoundPosition);
+            if (!skipSpatial)
+            {
+                VptPresetIndex = snapshot.Vpt is >= 0 and <= 4 ? snapshot.Vpt : -1;
+                SoundPositionIndex = Array.IndexOf(SoundPositionCodes, snapshot.SoundPosition);
+            }
             SpeakToChat = snapshot.SpeakToChat;
             AdaptiveVolume = snapshot.AdaptiveVolume;
             AutoPowerOffIndex = snapshot.AutoPowerOff;
@@ -1131,6 +1155,8 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(Firmware));
         OnPropertyChanged(nameof(Codec));
         OnPropertyChanged(nameof(CanEditHeadsetSound));
+        OnPropertyChanged(nameof(CanChangeSpatialEffect));
+        OnPropertyChanged(nameof(CanPowerOffFromPopup));
         OnPropertyChanged(nameof(ShowPopupSoundSection));
         OnPropertyChanged(nameof(ShowPopupConnectionSeparator));
         OnPropertyChanged(nameof(AudioText));

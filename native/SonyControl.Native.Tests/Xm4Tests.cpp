@@ -53,6 +53,8 @@ TEST(Xm4Profile, UsesV1WithSingleBattery) {
     EXPECT_TRUE(profile.protocol == SonyProtocolVersion::V1);
     EXPECT_FALSE(profile.capabilities.dualBattery);
     EXPECT_FALSE(profile.capabilities.dsee);
+    EXPECT_TRUE(profile.capabilities.powerOff);
+    EXPECT_TRUE(profile.capabilities.autoPowerOffWhenRemoved);
 }
 
 TEST_F(Xm4Connection, ConnectReadsV1State) {

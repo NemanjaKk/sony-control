@@ -35,7 +35,8 @@ struct DeviceState {
     // Empty when it doesn't, or when the list hasn't been read.
     std::vector<PlaybackDevice> playbackDevices;
 
-    // WH-XB900N legacy state. Appended so existing DeviceState fields retain their layout.
+    // Legacy State
+    // Appended So Existing DeviceState Fields Retain Their Layout
     int connectionQuality{-1};  // -1 unknown, 0 sound quality, 1 stable connection
     int voiceGuidance{-1};      // -1 unknown, 0 off, 1 on
     int vpt{-1};                // -1 unknown, otherwise preset 0..4

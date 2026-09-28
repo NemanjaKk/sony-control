@@ -38,7 +38,9 @@ public:
 
     virtual int getAutoPowerOff() = 0;
     virtual void setAutoPowerOff(int index) = 0;
-    // Turns the headset off. It may drop the link before acknowledging.
+
+    // Power Off
+    // The Headset May Drop The Link Before Acknowledging
     virtual void powerOff() = 0;
 
     virtual bool getSpeakToChat() = 0;
@@ -56,7 +58,8 @@ public:
         throw SonyException(SonyErrorCode::Unsupported, "Playback switching isn't supported");
     }
 
-    // WH-XB900N playback connection preference. Appended to preserve existing virtual slots.
+    // Connection Quality
+    // Appended To Preserve Existing Virtual Slots
     virtual int getConnectionQuality() {
         throw SonyException(SonyErrorCode::Unsupported, "Connection quality isn't supported");
     }
