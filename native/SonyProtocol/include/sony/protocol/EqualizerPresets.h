@@ -48,4 +48,11 @@ struct EqualizerPresetInfo {
 /// aliases ("bass", "treble") and a decimal number. Returns -1 when unknown.
 [[nodiscard]] int equalizerPresetFromName(std::string_view name);
 
+/// Folds Sony's six custom slots (0xa0-0xa5) onto Manual (0xa0); everything else passes through.
+[[nodiscard]] constexpr int normalizeEqualizerPreset(int raw) noexcept {
+    constexpr int kCustomFirst = 0xa0;
+    constexpr int kCustomLast  = 0xa5;
+    return (raw >= kCustomFirst && raw <= kCustomLast) ? kCustomFirst : raw;
+}
+
 } // namespace sony::protocol

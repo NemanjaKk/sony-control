@@ -135,6 +135,16 @@ TEST(Xm4Notifications, ParsesEqualizer) {
     EXPECT_EQ(state.equalizer.bands, (std::array<int, 5>{-10, -5, 0, 5, 10}));
 }
 
+// A device left on "Custom 3" (0xa2) still folds to Manual (0xa0).
+TEST(Xm4Notifications, FoldsOtherCustomSlotsIntoManual) {
+    DeviceState state;
+    const Payload payload{0x59, 0x01, 0xa2, 0x06, 0x0a, 0x00, 0x05, 0x0a, 0x0f, 0x14};
+
+    EXPECT_TRUE(applyV1Notification(payload, state));
+    EXPECT_EQ(state.equalizer.preset, 0xa0);
+    EXPECT_EQ(state.equalizer.bands, (std::array<int, 5>{-10, -5, 0, 5, 10}));
+}
+
 TEST(Xm4Notifications, IgnoresV2Layouts) {
     DeviceState state;
     const Payload payload{0x69, 0x17, 0x01, 0x01, 0x00, 0x00, 0x00};

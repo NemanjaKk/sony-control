@@ -414,3 +414,11 @@ TEST_F(Xm6Connection, ConnectSkipsPlaybackWhenSwitchingIsUnsupported) {
     EXPECT_TRUE(controller->state().playbackDevices.empty());
     EXPECT_NE(fake->requests().back(), (Payload{0x36, 0x02}));
 }
+
+// A headset left on "Custom 4" (0xa3) still folds to Manual (0xa0) on connect.
+TEST_F(Xm6Connection, ConnectFoldsOtherCustomSlotsIntoManual) {
+    scriptXm6Connect(*headset, /*answerHandshake=*/true, /*switching=*/true, /*eqPreset=*/0xa3);
+    controller->connect(kTestAddress);
+
+    EXPECT_EQ(controller->state().equalizer.preset, 0xa0);
+}
