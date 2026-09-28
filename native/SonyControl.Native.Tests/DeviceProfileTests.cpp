@@ -20,6 +20,7 @@ TEST(DeviceProfile, Wf1000Xm6UsesV2WithEarbudBatteries) {
     EXPECT_TRUE(profile.protocol == SonyProtocolVersion::V2);
     EXPECT_TRUE(profile.capabilities.dualBattery);
     EXPECT_TRUE(profile.capabilities.dsee);
+    EXPECT_TRUE(profile.capabilities.dseeExtreme);
     EXPECT_TRUE(profile.capabilities.speakToChat);
     // A real WF-1000XM6 doesn't answer adaptive volume and has a ten-band EQ without Clear Bass.
     EXPECT_FALSE(profile.capabilities.adaptiveVolume);
@@ -31,8 +32,20 @@ TEST(DeviceProfile, NamesWf1000Xm6) {
     EXPECT_EQ(to_string(SonyModel::WF1000XM6), "WF-1000XM6");
 }
 
+TEST(DeviceProfile, DseeBrandingPreservesExistingLabelsThroughCapabilities) {
+    EXPECT_FALSE(DeviceProfileRegistry::getProfileForDevice("WH-XB900N").capabilities.dseeExtreme);
+    EXPECT_TRUE(DeviceProfileRegistry::getProfileForDevice("WH-CH720N").capabilities.dseeExtreme);
+    EXPECT_TRUE(DeviceProfileRegistry::getProfileForDevice("ULT WEAR").capabilities.dseeExtreme);
+    EXPECT_TRUE(DeviceProfileRegistry::getProfileForDevice("WH-1000XM5").capabilities.dseeExtreme);
+    EXPECT_TRUE(DeviceProfileRegistry::getProfileForDevice("LinkBuds S").capabilities.dseeExtreme);
+}
+
 TEST(DeviceProfile, UnknownNamesFallBackToUnknownModel) {
     EXPECT_TRUE(DeviceProfileRegistry::identifyModel("Galaxy Buds") == SonyModel::Unknown);
+
+    const auto profile = DeviceProfileRegistry::getProfileForDevice("Galaxy Buds");
+    EXPECT_TRUE(profile.capabilities.powerOff);
+    EXPECT_TRUE(profile.capabilities.autoPowerOffWhenRemoved);
 }
 
 TEST(ErrorMapping, MapsEveryCodeToItsHresult) {

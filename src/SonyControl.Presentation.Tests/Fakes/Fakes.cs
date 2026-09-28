@@ -53,17 +53,25 @@ internal sealed class FakeStartupTaskService : IStartupTaskService
 }
 
 /// <summary>
-/// Records connect requests; <see cref="Accept"/> decides what Windows answers.
+/// Records Bluetooth connect/disconnect requests; <see cref="Accept"/> decides what Windows answers.
 /// </summary>
 internal sealed class FakeBluetoothAudio : IBluetoothAudio
 {
     public List<string> Requests { get; } = [];
+
+    public List<string> DisconnectRequests { get; } = [];
 
     public bool Accept { get; set; } = true;
 
     public Task<bool> ConnectAsync(string bluetoothAddress)
     {
         Requests.Add(bluetoothAddress);
+        return Task.FromResult(Accept);
+    }
+
+    public Task<bool> DisconnectAsync(string bluetoothAddress)
+    {
+        DisconnectRequests.Add(bluetoothAddress);
         return Task.FromResult(Accept);
     }
 }

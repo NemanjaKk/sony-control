@@ -38,7 +38,9 @@ public:
 
     virtual int getAutoPowerOff() = 0;
     virtual void setAutoPowerOff(int index) = 0;
-    // Turns the headset off. It may drop the link before acknowledging.
+
+    // Power Off
+    // The Headset May Drop The Link Before Acknowledging
     virtual void powerOff() = 0;
 
     virtual bool getSpeakToChat() = 0;
@@ -54,6 +56,15 @@ public:
     }
     virtual void switchPlayback(const std::string& /*address*/) {
         throw SonyException(SonyErrorCode::Unsupported, "Playback switching isn't supported");
+    }
+
+    // Connection Quality
+    // Appended To Preserve Existing Virtual Slots
+    virtual int getConnectionQuality() {
+        throw SonyException(SonyErrorCode::Unsupported, "Connection quality isn't supported");
+    }
+    virtual void setConnectionQuality(bool /*prioritizeStableConnection*/) {
+        throw SonyException(SonyErrorCode::Unsupported, "Connection quality isn't supported");
     }
 };
 

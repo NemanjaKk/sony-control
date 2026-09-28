@@ -66,7 +66,43 @@ public sealed record HeadsetFeatures(
     bool AdaptiveVolume,
     bool AutoPowerOff,
     bool FirmwareInfo,
-    bool CodecInfo);
+    bool CodecInfo)
+{
+    /// <summary>
+    /// Uses the DSEE Extreme branding rather than regular DSEE.
+    /// </summary>
+    public bool DseeExtreme { get; init; }
+
+    /// <summary>
+    /// Supports changing the Bluetooth connection-quality mode.
+    /// </summary>
+    public bool ConnectionQuality { get; init; }
+
+    /// <summary>
+    /// Supports headset voice guidance.
+    /// </summary>
+    public bool VoiceGuidance { get; init; }
+
+    /// <summary>
+    /// Supports Virtualphones Technology surround presets.
+    /// </summary>
+    public bool Vpt { get; init; }
+
+    /// <summary>
+    /// Supports sound-position presets.
+    /// </summary>
+    public bool SoundPosition { get; init; }
+
+    /// <summary>
+    /// Supports the explicit power-off command.
+    /// </summary>
+    public bool PowerOff { get; init; }
+
+    /// <summary>
+    /// Auto power-off includes the When taken off option.
+    /// </summary>
+    public bool AutoPowerOffWhenRemoved { get; init; }
+}
 
 /// <summary>
 /// Everything the headset last confirmed.
@@ -82,6 +118,14 @@ public sealed record HeadsetSnapshot(
     string Firmware,
     string Codec)
 {
+    public int ConnectionQuality { get; init; } = -1;
+
+    public int VoiceGuidance { get; init; } = -1;
+
+    public int Vpt { get; init; } = -1;
+
+    public int SoundPosition { get; init; } = -1;
+
     /// <summary>
     /// Devices connected to the headset (multipoint), when it can switch playback between
     /// them; empty when it can't.

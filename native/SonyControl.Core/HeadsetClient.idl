@@ -64,6 +64,13 @@ namespace SonyControl.Core
         Boolean AutoPowerOff;
         Boolean FirmwareInfo;
         Boolean CodecInfo;
+        Boolean ConnectionQuality;
+        Boolean DseeExtreme;
+        Boolean VoiceGuidance;
+        Boolean Vpt;
+        Boolean SoundPosition;
+        Boolean PowerOff;
+        Boolean AutoPowerOffWhenRemoved;
     };
 
     struct HeadsetState
@@ -77,6 +84,10 @@ namespace SonyControl.Core
         Int32 AutoPowerOff;
         String Firmware;
         String Codec;
+        Int32 ConnectionQuality;
+        Int32 VoiceGuidance;
+        Int32 Vpt;
+        Int32 SoundPosition;
     };
 
     // A device connected to the headset (multipoint), and whether it has playback.
@@ -108,6 +119,7 @@ namespace SonyControl.Core
         // Asks Windows to connect this paired headset's audio (what Connect in Settings > Sound
         // does). True when Windows took the request; the headset still has to be on and near.
         static Windows.Foundation.IAsyncOperation<Boolean> ConnectAudioAsync(String bluetoothAddress);
+        static Windows.Foundation.IAsyncOperation<Boolean> DisconnectAudioAsync(String bluetoothAddress);
 
         String DeviceName { get; };
         String ModelName { get; };
@@ -134,10 +146,18 @@ namespace SonyControl.Core
         Windows.Foundation.IAsyncAction SetAutoPowerOffAsync(Int32 index);
         Windows.Foundation.IAsyncAction SwitchPlaybackAsync(String address);
 
+        // Legacy Controls
+        // Appended To Preserve Existing WinRT Method Order
+        Windows.Foundation.IAsyncAction SetConnectionQualityAsync(Boolean prioritizeStableConnection);
+        Windows.Foundation.IAsyncAction SetVptAsync(Int32 preset);
+        Windows.Foundation.IAsyncAction SetSoundPositionAsync(Int32 position);
+        Windows.Foundation.IAsyncAction SetVoiceGuidanceAsync(Int32 value);
+
         // Raised on a background thread after every confirmed change.
         event Windows.Foundation.TypedEventHandler<HeadsetClient, HeadsetState> StateChanged;
 
         // Raised on a background thread when the link drops unexpectedly.
         event Windows.Foundation.TypedEventHandler<HeadsetClient, Object> Disconnected;
+
     }
 }

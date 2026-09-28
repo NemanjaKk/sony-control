@@ -334,10 +334,15 @@
 
                 <MenuFlyoutSeparator />
 
-                <!-- Sound (disabled while disconnected) -->
-                <ContentControl IsEnabled="{x:Bind ViewModel.CurrentHeadset.IsConnected, Mode=OneWay, FallbackValue=False}" Style="{StaticResource SectionStyle}">
+                <!-- Codec-gated popup Sound -->
+                <ContentControl
+                    IsEnabled="{x:Bind ViewModel.CurrentHeadset.CanEditHeadsetSound, Mode=OneWay, FallbackValue=False}"
+                    Style="{StaticResource SectionStyle}"
+                    Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupSoundSection, Mode=OneWay, FallbackValue=Collapsed}">
                     <StackPanel Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto" Visibility="{x:Bind ViewModel.CurrentHeadset.Features.Equalizer, Mode=OneWay}">
+                        <Grid
+                            ColumnDefinitions="*,Auto"
+                            Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupEqualizer, Mode=OneWay, FallbackValue=Collapsed}">
                             <TextBlock VerticalAlignment="Center" Text="Equalizer" />
                             <ComboBox
                                 Grid.Column="1"
@@ -347,18 +352,39 @@
                                 ItemsSource="{x:Bind ViewModel.CurrentHeadset.EqualizerPresets, Mode=OneWay}"
                                 SelectedIndex="{x:Bind ViewModel.CurrentHeadset.SelectedEqualizerIndex, Mode=TwoWay}" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto" Visibility="{x:Bind ViewModel.CurrentHeadset.Features.Dsee, Mode=OneWay}">
-                            <TextBlock VerticalAlignment="Center" Text="DSEE Extreme" />
+                        <Grid
+                            ColumnDefinitions="*,Auto"
+                            Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupDsee, Mode=OneWay, FallbackValue=Collapsed}">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Text="{x:Bind ViewModel.CurrentHeadset.DseeName, Mode=OneWay}" />
                             <ComboBox
                                 Grid.Column="1"
                                 MinWidth="150"
-                                AutomationProperties.Name="DSEE Extreme"
+                                AutomationProperties.Name="{x:Bind ViewModel.CurrentHeadset.DseeName, Mode=OneWay}"
                                 ItemsSource="{x:Bind vm:HeadsetViewModel.DseeOptions}"
                                 SelectedIndex="{x:Bind ViewModel.CurrentHeadset.DseeIndex, Mode=TwoWay}" />
                         </Grid>
                     </StackPanel>
                 </ContentControl>
-                <!-- /Sound -->
+                <!-- /Codec-gated popup Sound -->
+                <!-- Connection Mode -->
+                <MenuFlyoutSeparator
+                    Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupConnectionSeparator, Mode=OneWay}" />
+                <ContentControl
+                    IsEnabled="{x:Bind ViewModel.CurrentHeadset.CanChangeConnectionMode, Mode=OneWay, FallbackValue=False}"
+                    Style="{StaticResource SectionStyle}"
+                    Visibility="{x:Bind ViewModel.CurrentHeadset.HasConnectionQualityControl, Mode=OneWay}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock VerticalAlignment="Center" Text="Connection mode" />
+                        <ComboBox
+                            Grid.Column="1"
+                            MinWidth="150"
+                            AutomationProperties.Name="Connection mode"
+                            ItemsSource="{x:Bind vm:HeadsetViewModel.ConnectionQualityOptions}"
+                            SelectedIndex="{x:Bind ViewModel.CurrentHeadset.ConnectionQualityIndex, Mode=TwoWay}" />
+                    </Grid>
+                </ContentControl>
 
             </StackPanel>
         </ScrollViewer>
@@ -379,9 +405,10 @@
                 Padding="10,0"
                 VerticalAlignment="Center"
                 Command="{x:Bind ViewModel.CurrentHeadset.PowerOffCommand, Mode=OneWay}"
+                IsEnabled="{x:Bind ViewModel.CurrentHeadset.CanPowerOffFromPopup, Mode=OneWay, FallbackValue=False}"
                 Style="{StaticResource SubtleButtonStyle}"
                 ToolTipService.ToolTip="Turn off the headphones"
-                Visibility="{x:Bind ViewModel.CurrentHeadset.IsConnected, Mode=OneWay, FallbackValue=Collapsed}">
+                Visibility="{x:Bind ViewModel.CurrentHeadset.CanPowerOffFromPopup, Mode=OneWay, FallbackValue=Collapsed}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon FontSize="16" Glyph="&#xE7E8;" />
                     <TextBlock VerticalAlignment="Center" Text="Turn off" />

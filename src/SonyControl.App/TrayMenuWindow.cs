@@ -45,7 +45,7 @@ internal sealed partial class TrayMenuWindow : Window
         Content = _root;
         _hwnd = WindowNative.GetWindowHandle(this);
 
-        _menu.Closed += (_, _) => AppWindow.Hide();
+        _menu.Closed += (_, _) => AppWindow?.Hide();
 
         // Window Chrome
         var presenter = OverlappedPresenter.Create();

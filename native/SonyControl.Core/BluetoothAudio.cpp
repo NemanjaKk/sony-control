@@ -1,6 +1,11 @@
 #include "pch.h"
 
 #include "BluetoothAudio.h"
+#include <bluetoothapis.h>
+#include <winioctl.h>
+#include <bthioctl.h>
+
+#pragma comment(lib, "Bthprops.lib")
 
 #include "sony/transport/Logger.h"
 
@@ -144,4 +149,48 @@ bool requestAudioConnect(uint64_t bluetoothAddress) {
     return accepted;
 }
 
+bool requestAudioDisconnect(uint64_t bluetoothAddress) {
+    BLUETOOTH_FIND_RADIO_PARAMS search{};
+    search.dwSize = static_cast<DWORD>(sizeof(search));
+
+    HANDLE radio = nullptr;
+    const HBLUETOOTH_RADIO_FIND find = BluetoothFindFirstRadio(&search, &radio);
+    if (!find) {
+        Logger::warn(kCategory, "Couldn't find a Bluetooth radio for full-device disconnect");
+        return false;
+    }
+
+    BTH_ADDR address = static_cast<BTH_ADDR>(bluetoothAddress);
+    bool accepted = false;
+
+    do {
+        DWORD returned = 0;
+        accepted = DeviceIoControl(
+            radio,
+            IOCTL_BTH_DISCONNECT_DEVICE,
+            &address,
+            static_cast<DWORD>(sizeof(address)),
+            nullptr,
+            0,
+            &returned,
+            nullptr) != FALSE;
+
+        CloseHandle(radio);
+        radio = nullptr;
+
+        if (accepted) {
+            break;
+        }
+    } while (BluetoothFindNextRadio(find, &radio));
+
+    BluetoothFindRadioClose(find);
+
+    Logger::info(
+        kCategory,
+        accepted
+            ? "Asked Windows to disconnect the headset's full Bluetooth link"
+            : "Windows rejected the full Bluetooth disconnect request");
+
+    return accepted;
+}
 } // namespace sony::audio

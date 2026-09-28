@@ -38,7 +38,27 @@ public interface IHeadset : IDisposable
 
     Task SetEqualizerCustomAsync(EqualizerSetting value);
 
+    /// <summary>
+    /// Changes the Bluetooth connection-quality preference.
+    /// </summary>
+    Task SetConnectionQualityAsync(bool prioritizeStableConnection);
+
     Task SetDseeAsync(bool enabled);
+
+    /// <summary>
+    /// Changes the Virtualphones Technology surround preset.
+    /// </summary>
+    Task SetVptAsync(int preset);
+
+    /// <summary>
+    /// Changes the sound-position preset.
+    /// </summary>
+    Task SetSoundPositionAsync(int position);
+
+    /// <summary>
+    /// Enables or disables voice guidance.
+    /// </summary>
+    Task SetVoiceGuidanceAsync(int value);
 
     /// <summary>
     /// Turns the headset off. The control link drops afterwards.

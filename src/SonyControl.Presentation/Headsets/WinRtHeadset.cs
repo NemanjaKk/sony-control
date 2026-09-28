@@ -60,7 +60,16 @@ public sealed class WinRtHeadset : IHeadset
             value.Bands[3],
             value.Bands[4])).AsTask();
 
+    public Task SetConnectionQualityAsync(bool prioritizeStableConnection) =>
+        _client.SetConnectionQualityAsync(prioritizeStableConnection).AsTask();
+
     public Task SetDseeAsync(bool enabled) => _client.SetDseeAsync(enabled).AsTask();
+
+    public Task SetVptAsync(int preset) => _client.SetVptAsync(preset).AsTask();
+
+    public Task SetSoundPositionAsync(int position) => _client.SetSoundPositionAsync(position).AsTask();
+
+    public Task SetVoiceGuidanceAsync(int value) => _client.SetVoiceGuidanceAsync(value).AsTask();
 
     public Task PowerOffAsync() => _client.PowerOffAsync().AsTask();
 
@@ -91,7 +100,13 @@ public sealed class WinRtHeadset : IHeadset
         state.AdaptiveVolume,
         state.AutoPowerOff,
         state.Firmware ?? "",
-        state.Codec ?? "");
+        state.Codec ?? "")
+    {
+        ConnectionQuality = state.ConnectionQuality,
+        VoiceGuidance = state.VoiceGuidance,
+        Vpt = state.Vpt,
+        SoundPosition = state.SoundPosition,
+    };
 
     private static int? Known(int level) => level < 0 ? null : level;
 
@@ -122,7 +137,16 @@ public sealed class WinRtHeadset : IHeadset
         capabilities.AdaptiveVolume,
         capabilities.AutoPowerOff,
         capabilities.FirmwareInfo,
-        capabilities.CodecInfo);
+        capabilities.CodecInfo)
+    {
+        DseeExtreme = capabilities.DseeExtreme,
+        ConnectionQuality = capabilities.ConnectionQuality,
+        VoiceGuidance = capabilities.VoiceGuidance,
+        Vpt = capabilities.Vpt,
+        SoundPosition = capabilities.SoundPosition,
+        PowerOff = capabilities.PowerOff,
+        AutoPowerOffWhenRemoved = capabilities.AutoPowerOffWhenRemoved,
+    };
 
     private void OnStateChanged(Core.HeadsetClient sender, Core.HeadsetState args) =>
         StateChanged?.Invoke(this, WithPlaybackDevices(ToSnapshot(args)));

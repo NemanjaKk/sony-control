@@ -29,12 +29,50 @@ constexpr uint8_t kLevelAdjustment = 0x01;
 constexpr uint8_t kDualSingleOff = 0x00;   // ambient sound passthrough
 constexpr uint8_t kDualSingleDual = 0x02;  // noise cancelling
 
+int whXb900nAutoPowerOffIndex(uint8_t code) {
+    switch (code) {
+        case 0x11: return 0; // disabled
+        case 0x00: return 1; // 5 minutes
+        case 0x01: return 2; // 30 minutes
+        case 0x02: return 3; // 1 hour
+        case 0x03: return 4; // 3 hours
+        default: return -1;
+    }
+}
+
+uint8_t whXb900nAutoPowerOffCode(int index) {
+    switch (index) {
+        case 1: return 0x00;
+        case 2: return 0x01;
+        case 3: return 0x02;
+        case 4: return 0x03;
+        default: return 0x11;
+    }
+}
+
+bool isWhXb900nSoundPositionCode(uint8_t code) {
+    switch (code) {
+        case 0x00:
+        case 0x01:
+        case 0x02:
+        case 0x03:
+        case 0x11:
+        case 0x12:
+            return true;
+        default:
+            return false;
+    }
+}
+
 constexpr auto kTimeout = std::chrono::milliseconds(1000);
 
 } // namespace
 
 ProtocolV1::ProtocolV1(SonyProtocolSession& session)
-    : _session(session) {}
+    : ProtocolV1(session, false) {}
+
+ProtocolV1::ProtocolV1(SonyProtocolSession& session, bool whXb900nLayout)
+    : _session(session), _whXb900nLayout(whXb900nLayout) {}
 
 void ProtocolV1::initDevice() {
     // V1 does not require an init handshake like V2; best-effort poll of
@@ -136,10 +174,9 @@ NoiseControlState ProtocolV1::getNoiseControl() {
 }
 
 void ProtocolV1::setNoiseControl(const NoiseControlState& state) {
-    // SET 68 02 <effect> 01 <dualSingle> 01 <asmId> <asmLevel>
-    // Noise cancelling is dual NC with the level at 0; ambient sound is
-    // dual/single OFF with the level in the last byte. This is what the legacy
-    // client has always sent and what the headset echoes back on GET.
+    // WH-XB900N uses the V1 control payload shape observed in the compatible
+    // Android client: effect 0x10 when enabled and NC setting type 0x02.
+    // Keep the existing 0x11 / 0x01 format for all other V1 devices.
     const bool off = state.mode == NoiseControlMode::Off;
     const bool ambient = state.mode == NoiseControlMode::Ambient;
     const uint8_t level = ambient ? static_cast<uint8_t>(std::clamp(state.ambientLevel, 1, 20)) : 0;
@@ -147,11 +184,11 @@ void ProtocolV1::setNoiseControl(const NoiseControlState& state) {
     std::vector<uint8_t> payload = {
         0x68,
         kNcAsmInquired,
-        off ? kEffectOff : kEffectAdjustmentCompletion,
+        static_cast<uint8_t>(off ? kEffectOff : (_whXb900nLayout ? 0x10 : kEffectAdjustmentCompletion)),
+        static_cast<uint8_t>(_whXb900nLayout ? 0x02 : kLevelAdjustment),
+        static_cast<uint8_t>((ambient || off) ? kDualSingleOff : (_whXb900nLayout ? 0x01 : kDualSingleDual)),
         kLevelAdjustment,
-        (ambient || off) ? kDualSingleOff : kDualSingleDual,
-        kLevelAdjustment,
-        static_cast<uint8_t>(state.focusOnVoice ? 1 : 0),
+        static_cast<uint8_t>((_whXb900nLayout ? ambient && state.focusOnVoice : state.focusOnVoice) ? 1 : 0),
         level
     };
 
@@ -189,11 +226,12 @@ void ProtocolV1::setEqualizerPreset(int preset) {
 }
 
 void ProtocolV1::setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) {
-    // SET custom: 58 01 A0 06 <clearBass+10> <b1..b5 +10>
+    // WH-XB900N write uses FF; its returned Manual preset is A0.
+    // Other V1 models retain the existing A0 write format.
     std::vector<uint8_t> payload = {
         0x58,
         kEqInquired,
-        0xa0,
+        static_cast<uint8_t>(_whXb900nLayout ? 0xff : 0xa0),
         0x06,
         clampEqValue(clearBass)
     };
@@ -204,7 +242,18 @@ void ProtocolV1::setEqualizerCustom(int clearBass, const std::array<int, 5>& ban
 }
 
 bool ProtocolV1::getDsee() {
-    throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on Protocol V1");
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on Protocol V1");
+    }
+    // WH-XB900N (firmware 4.5.2), captured from Sony Sound Connect:
+    // GET E6 02 -> RET E7 02 00 <00 Off / 01 Auto>.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0xe6, 0x02} },
+        0xe7, 0x02, kTimeout);
+    if (response.payload.size() != 4 || response.payload[2] != 0x00 || response.payload[3] > 0x01) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N DSEE state response");
+    }
+    return response.payload[3] == 0x01;
 }
 
 void ProtocolV1::powerOff() {
@@ -212,10 +261,49 @@ void ProtocolV1::powerOff() {
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = {0x22, 0x00, 0x01} });
 }
 
-void ProtocolV1::setDsee(bool /*enabled*/) {
-    throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on Protocol V1");
+void ProtocolV1::setDsee(bool enabled) {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on Protocol V1");
+    }
+    // WH-XB900N: SET E8 02 00 <00 Off / 01 Auto> -> RET E9 02 00 <same>.
+    const uint8_t requested = static_cast<uint8_t>(enabled ? 0x01 : 0x00);
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0xe8, 0x02, 0x00, requested} },
+        0xe9, 0x02, kTimeout);
+    if (response.payload.size() != 4 || response.payload[2] != 0x00 || response.payload[3] != requested) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "WH-XB900N DSEE setting was not confirmed");
+    }
 }
 
+int ProtocolV1::getConnectionQuality() {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "Connection quality unsupported on this V1 model");
+    }
+    // Observed on WH-XB900N 4.5.2: GET E6 01 -> E7 01 00 XX.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0xe6, 0x01} },
+        0xe7, 0x01, kTimeout);
+    if (response.payload.size() != 4 || response.payload[2] != 0 || response.payload[3] > 1) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N connection quality response");
+    }
+    return response.payload[3];
+}
+
+void ProtocolV1::setConnectionQuality(bool prioritizeStableConnection) {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "Connection quality unsupported on this V1 model");
+    }
+    // WH-XB900N firmware 4.5.2: 0 = Prioritize Sound Quality,
+    // 1 = Prioritize Stable Connection.
+    const uint8_t requested = static_cast<uint8_t>(prioritizeStableConnection ? 1 : 0);
+    // SET E8 01 00 XX -> E9 01 00 XX (confirmed by Sony Sound Connect capture).
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0xe8, 0x01, 0x00, requested} },
+        0xe9, 0x01, kTimeout);
+    if (response.payload.size() != 4 || response.payload[2] != 0 || response.payload[3] != requested) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "WH-XB900N connection quality not confirmed");
+    }
+}
 std::string ProtocolV1::getFirmwareVersion() {
     // GET 04 02 -> RET 05 02 <len> <ascii version...>
     auto resp = _session.sendAndAwaitResponse(
@@ -239,11 +327,52 @@ std::string ProtocolV1::getCodec() {
 }
 
 int ProtocolV1::getAutoPowerOff() {
-    throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on Protocol V1");
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on Protocol V1");
+    }
+
+    // WH-XB900N: GET F6 04 -> RET F7 04 01 <current> <last timed>.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0xf6, 0x04} },
+        0xf7, 0x04, kTimeout);
+    if (response.payload.size() != 5 || response.payload[2] != 0x01) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N auto power-off response");
+    }
+
+    const int index = whXb900nAutoPowerOffIndex(response.payload[3]);
+    if (index < 0) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Unknown WH-XB900N auto power-off value");
+    }
+
+    if (response.payload[4] <= 0x03) {
+        _whXb900nLastTimedAutoPowerOffCode = response.payload[4];
+    } else if (index > 0) {
+        _whXb900nLastTimedAutoPowerOffCode = response.payload[3];
+    }
+    return index;
 }
 
-void ProtocolV1::setAutoPowerOff(int /*index*/) {
-    throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on Protocol V1");
+void ProtocolV1::setAutoPowerOff(int index) {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on Protocol V1");
+    }
+    if (index < 0 || index > 4) {
+        throw SonyException(SonyErrorCode::Unsupported, "WH-XB900N auto power-off option is not supported");
+    }
+
+    const uint8_t current = whXb900nAutoPowerOffCode(index);
+    const uint8_t lastTimed = index == 0 ? _whXb900nLastTimedAutoPowerOffCode : current;
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0xf8, 0x04, 0x01, current, lastTimed} },
+        0xf9, 0x04, kTimeout);
+    if (response.payload.size() != 5 || response.payload[2] != 0x01 ||
+        response.payload[3] != current || response.payload[4] != lastTimed) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "WH-XB900N auto power-off setting was not confirmed");
+    }
+
+    if (index > 0) {
+        _whXb900nLastTimedAutoPowerOffCode = current;
+    }
 }
 
 bool ProtocolV1::getSpeakToChat() {
@@ -262,8 +391,27 @@ void ProtocolV1::setAdaptiveVolume(bool /*enabled*/) {
     throw SonyException(SonyErrorCode::Unsupported, "Adaptive Volume is not supported on Protocol V1");
 }
 
+int ProtocolV1::getVpt() {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "VPT is available for WH-XB900N only");
+    }
+
+    // Hardware-verified WH-XB900N readback:
+    // DataMdr GET 46 01 -> RET 47 01 <preset>.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0x46, 0x01} },
+        0x47, 0x01, kTimeout);
+    if (response.payload.size() != 3 || response.payload[1] != 0x01 || response.payload[2] > 0x04) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N VPT response");
+    }
+    return static_cast<int>(response.payload[2]);
+}
+
 void ProtocolV1::setVpt(int preset) {
-    // VPT_SET_PARAM (72), VPT (1), preset
+    if (_whXb900nLayout && (preset < 0 || preset > 4)) {
+        throw SonyException(SonyErrorCode::ProtocolViolation, "Invalid WH-XB900N VPT preset");
+    }
+
     std::vector<uint8_t> payload = {
         0x48,
         0x01,
@@ -272,14 +420,72 @@ void ProtocolV1::setVpt(int preset) {
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
 
+int ProtocolV1::getSoundPosition() {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "Sound position is available for WH-XB900N only");
+    }
+
+    // Hardware-verified WH-XB900N readback:
+    // DataMdr GET 46 02 -> RET 47 02 <position code>.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdr, .payload = {0x46, 0x02} },
+        0x47, 0x02, kTimeout);
+    if (response.payload.size() != 3 || response.payload[1] != 0x02 ||
+        !isWhXb900nSoundPositionCode(response.payload[2])) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N sound-position response");
+    }
+    return static_cast<int>(response.payload[2]);
+}
+
 void ProtocolV1::setSoundPosition(int preset) {
-    // VPT_SET_PARAM (72), SOUND_POSITION (2), preset
+    if (_whXb900nLayout &&
+        (preset < 0 || preset > 0xff ||
+         !isWhXb900nSoundPositionCode(static_cast<uint8_t>(preset)))) {
+        throw SonyException(SonyErrorCode::ProtocolViolation, "Invalid WH-XB900N sound-position preset");
+    }
+
     std::vector<uint8_t> payload = {
         0x48,
         0x02,
         static_cast<uint8_t>(preset)
     };
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
+}
+
+int ProtocolV1::getVoiceGuidance() {
+    if (!_whXb900nLayout) {
+        throw SonyException(SonyErrorCode::Unsupported, "Voice guidance is available for WH-XB900N only");
+    }
+    // Captured WH-XB900N firmware 4.5.2 readback:
+    // DataMdrNo2 GET 46 01 01 -> RET 47 01 01 XX.
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdrNo2, .payload = {0x46, 0x01, 0x01} },
+        0x47, 0x01, kTimeout);
+    if (response.payload.size() != 4 ||
+        response.payload[1] != 0x01 ||
+        response.payload[2] != 0x01 ||
+        response.payload[3] > 1) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "Invalid WH-XB900N voice-guidance response");
+    }
+    return static_cast<int>(response.payload[3]);
+}
+void ProtocolV1::setVoiceGuidance(int value) {
+    if (!_whXb900nLayout || value < 0 || value > 1) {
+        throw SonyException(SonyErrorCode::Unsupported, "Voice guidance is available for WH-XB900N only");
+    }
+
+    // Observed on WH-XB900N firmware 4.5.2:
+    // DataMdrNo2 SET 48 01 01 XX -> RET 49 01 01 XX.
+    const auto requested = static_cast<uint8_t>(value);
+    const auto response = _session.sendAndAwaitResponse(
+        SonyFrame{ .type = DataType::DataMdrNo2, .payload = {0x48, 0x01, 0x01, requested} },
+        0x49, 0x01, kTimeout);
+    if (response.payload.size() != 4 ||
+        response.payload[1] != 0x01 ||
+        response.payload[2] != 0x01 ||
+        response.payload[3] != requested) {
+        throw SonyException(SonyErrorCode::InvalidResponse, "WH-XB900N voice-guidance setting was not confirmed");
+    }
 }
 
 } // namespace sony::protocol

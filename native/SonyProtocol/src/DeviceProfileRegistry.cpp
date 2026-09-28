@@ -36,7 +36,39 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = false,
                 .codecInfo = false,
                 .wearSensor = false,
-                .multipoint = false
+                .multipoint = false,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
+            }
+        },
+        // WH-XB900N (V1 protocol). Hardware-verified on firmware 4.5.2:
+        // ANC/Ambient, EQ/Clear Bass, DSEE, connection-quality mode, auto power-off,
+        // firmware and codec. Modern two-device multipoint is not exposed by this firmware.
+        DeviceProfile{
+            .model = SonyModel::WHXB900N,
+            .protocol = SonyProtocolVersion::V1,
+            .capabilities = DeviceCapabilities{
+                .battery = true,
+                .dualBattery = false,
+                .noiseCancelling = true,
+                .ambientSound = true,
+                .focusOnVoice = true,
+                .equalizer = true,
+                .clearBass = true,
+                .dsee = true,
+                .speakToChat = false,
+                .adaptiveVolume = false,
+                .autoPowerOff = true,
+                .firmwareInfo = true,
+                .codecInfo = true,
+                .wearSensor = false,
+                .multipoint = false,
+                .connectionQuality = true,
+                .voiceGuidance = true,
+                .vpt = true,
+                .soundPosition = true,
+                .powerOff = false,
+                .autoPowerOffWhenRemoved = false
             }
         },
         // WH-1000XM4 (V1 protocol, ANC/Ambient, Single battery, wear sensor, multipoint)
@@ -60,7 +92,9 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WH-1000XM5 (V2 protocol, Full capability set)
@@ -76,13 +110,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = true,
                 .adaptiveVolume = true,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WH-1000XM6 (V2 protocol, Full capability set)
@@ -98,13 +135,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = true,
                 .adaptiveVolume = true,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WF-1000XM4 (V2 protocol, TWS dual battery + case, speak to chat, wear sensor)
@@ -120,13 +160,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = true,
                 .adaptiveVolume = false,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WF-1000XM5 (V2 protocol, TWS dual battery + case, adaptive volume, wear sensor)
@@ -142,13 +185,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = true,
                 .adaptiveVolume = true,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // WF-1000XM6 (V2 protocol, TWS flagship). A real XM6 (firmware 1.6.0) doesn't answer
@@ -165,13 +211,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = false,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = true,
                 .adaptiveVolume = false,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
 
@@ -188,13 +237,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = false,
                 .adaptiveVolume = false,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = false,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // ULT WEAR / WH-ULT900N (V2 protocol, over-ear, wear sensor, multipoint)
@@ -210,13 +262,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = false,
                 .adaptiveVolume = false,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         },
         // LinkBuds S / WF-LS900N (V2 protocol, TWS dual battery, speak-to-chat, wear sensor)
@@ -232,13 +287,16 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
+                .dseeExtreme = true,
                 .speakToChat = true,
                 .adaptiveVolume = false,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = true,
-                .multipoint = true
+                .multipoint = true,
+                .powerOff = true,
+                .autoPowerOffWhenRemoved = true
             }
         }
     };
@@ -254,6 +312,9 @@ SonyModel DeviceProfileRegistry::identifyModel(std::string_view deviceName) noex
 
     std::string upper = toUpper(deviceName);
 
+    if (upper.find("WH-XB900N") != std::string::npos || upper.find("WHXB900N") != std::string::npos) {
+        return SonyModel::WHXB900N;
+    }
     if (upper.find("WH-1000XM3") != std::string::npos || upper.find("WH1000XM3") != std::string::npos) {
         return SonyModel::WH1000XM3;
     }
@@ -314,7 +375,10 @@ DeviceProfile DeviceProfileRegistry::getProfileForDevice(std::string_view device
     return DeviceProfile{
         .model = SonyModel::Unknown,
         .protocol = SonyProtocolVersion::V1,
-        .capabilities = DeviceCapabilities{}
+        .capabilities = DeviceCapabilities{
+            .powerOff = true,
+            .autoPowerOffWhenRemoved = true
+        }
     };
 }
 

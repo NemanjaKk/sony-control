@@ -27,7 +27,8 @@ enum class SonyModel
 
     WHCH720N,
     ULTWear,
-    LinkBudsS
+    LinkBudsS,
+    WHXB900N
 };
 
 struct DeviceCapabilities
@@ -43,6 +44,7 @@ struct DeviceCapabilities
     bool clearBass = false;
 
     bool dsee = false;
+    bool dseeExtreme = false;
 
     bool speakToChat = false;
     bool adaptiveVolume = false;
@@ -55,6 +57,17 @@ struct DeviceCapabilities
     bool wearSensor = false;
 
     bool multipoint = false;
+
+    bool connectionQuality = false;
+    bool voiceGuidance = false;
+    bool vpt = false;
+    bool soundPosition = false;
+
+    // Power-Off Support
+    bool powerOff = false;
+
+    // Auto Power-Off Option Set
+    bool autoPowerOffWhenRemoved = false;
 };
 
 struct DeviceProfile
@@ -76,6 +89,7 @@ struct DeviceProfile
         case SonyModel::WHCH720N:  return "WH-CH720N";
         case SonyModel::ULTWear:    return "ULT WEAR";
         case SonyModel::LinkBudsS:  return "LinkBuds S";
+        case SonyModel::WHXB900N:  return "WH-XB900N";
         case SonyModel::Unknown:   return "Unknown";
     }
     return "Unknown";

@@ -13,4 +13,7 @@ namespace sony::audio {
 // the headset still has to be on and in range. Blocks, so call it off the UI thread.
 [[nodiscard]] bool requestAudioConnect(uint64_t bluetoothAddress);
 
+// Asks Windows to disconnect the paired headset's full Bluetooth link.
+// Used immediately before reconnecting so Windows performs a fresh A2DP negotiation.
+[[nodiscard]] bool requestAudioDisconnect(uint64_t bluetoothAddress);
 } // namespace sony::audio

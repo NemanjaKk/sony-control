@@ -29,7 +29,7 @@
                                 MinWidth="180"
                                 VerticalAlignment="Center"
                                 AutomationProperties.Name="Auto power-off"
-                                ItemsSource="{x:Bind vm:HeadsetViewModel.AutoPowerOffOptions}"
+                                ItemsSource="{x:Bind ViewModel.SelectedHeadset.DisplayedAutoPowerOffOptions, Mode=OneWay}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedHeadset.AutoPowerOffIndex, Mode=TwoWay}" />
                         </Grid>
                     </Border>
@@ -46,6 +46,47 @@
                                 AutomationProperties.Name="Adaptive volume"
                                 IsOn="{x:Bind ViewModel.SelectedHeadset.AdaptiveVolume, Mode=TwoWay}"
                                 Style="{StaticResource CardToggleSwitchStyle}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Voice Guidance -->
+                    <Border
+                        Style="{StaticResource SettingsCardStyle}"
+                        Visibility="{x:Bind ViewModel.SelectedHeadset.HasVoiceGuidanceControl, Mode=OneWay}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Voice guidance" />
+                                <TextBlock
+                                    Style="{StaticResource SecondaryTextStyle}"
+                                    Text="Plays spoken status and setting updates." />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                AutomationProperties.Name="Voice guidance"
+                                IsOn="{x:Bind ViewModel.SelectedHeadset.VoiceGuidance, Mode=TwoWay}"
+                                Style="{StaticResource CardToggleSwitchStyle}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Bluetooth Connection Quality -->
+                    <Border
+                        Style="{StaticResource SettingsCardStyle}"
+                        Visibility="{x:Bind ViewModel.SelectedHeadset.HasConnectionQualityControl, Mode=OneWay}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Connection mode" />
+                                <TextBlock
+                                    Style="{StaticResource SecondaryTextStyle}"
+                                    Text="Chooses SBC, AAC, or High Quality for Bluetooth audio." />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                MinWidth="180"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Connection mode"
+                                IsEnabled="{x:Bind ViewModel.SelectedHeadset.CanChangeConnectionMode, Mode=OneWay}"
+                                ItemsSource="{x:Bind vm:HeadsetViewModel.ConnectionQualityOptions}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedHeadset.ConnectionQualityIndex, Mode=TwoWay}" />
                         </Grid>
                     </Border>
                 </StackPanel>

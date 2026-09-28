@@ -16,7 +16,13 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     private readonly FlyoutNavigator _navigator;
     private readonly Func<ManagedHeadset, HeadsetViewModel> _createHeadsetViewModel;
     private readonly IBluetoothAudio _bluetoothAudio;
+    private readonly TimeProvider _timeProvider;
     private readonly UiContext _ui = new();
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+
+    private static readonly TimeSpan AudioDisconnectTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan AudioDisconnectPollInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan AudioReconnectSettleDelay = TimeSpan.FromMilliseconds(500);
 
     private FlyoutRoute _route = new(FlyoutPageKind.Empty, null, false);
     private HeadsetViewModel? _currentHeadset;
@@ -25,14 +31,17 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         HeadsetManager manager,
         FlyoutNavigator navigator,
         Func<ManagedHeadset, HeadsetViewModel> createHeadsetViewModel,
-        IBluetoothAudio bluetoothAudio)
+        IBluetoothAudio bluetoothAudio,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(manager);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _manager = manager;
         _navigator = navigator;
         _createHeadsetViewModel = createHeadsetViewModel;
         _bluetoothAudio = bluetoothAudio;
+        _timeProvider = timeProvider;
 
         PickCommand = new RelayCommand<HeadsetViewModel>(Pick);
         BackCommand = new RelayCommand(Back);
@@ -111,14 +120,20 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _lifetimeCancellation.Cancel();
         _manager.HeadsetAdded -= OnHeadsetAdded;
         _manager.HeadsetRemoved -= OnHeadsetRemoved;
         _manager.ConnectionStateChanged -= OnConnectionStateChanged;
         foreach (var headset in Headsets)
         {
+            headset.AutoConnectChanged -= OnAutoConnectChanged;
+            headset.ReconnectRequested -= OnReconnectRequested;
+            headset.AudioReconnectRequested -= OnAudioReconnectRequested;
+            headset.ConnectRequested -= OnConnectRequested;
             headset.Dispose();
         }
         Headsets.Clear();
+        _lifetimeCancellation.Dispose();
     }
 
     private void Pick(HeadsetViewModel? headset)
@@ -159,6 +174,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             Headsets.Remove(viewModel);
             viewModel.AutoConnectChanged -= OnAutoConnectChanged;
             viewModel.ReconnectRequested -= OnReconnectRequested;
+            viewModel.AudioReconnectRequested -= OnAudioReconnectRequested;
             viewModel.ConnectRequested -= OnConnectRequested;
             viewModel.Dispose();
         }
@@ -193,6 +209,58 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             _manager.Reconnect(headset.Id);
             headset.RaiseAutoConnectChanged();
             Refresh();
+        }
+    }
+
+    private async void OnAudioReconnectRequested(object? sender, AudioReconnectRequestedEventArgs e)
+    {
+        if (sender is not HeadsetViewModel headset || !headset.Features.ConnectionQuality)
+        {
+            e.Complete(false);
+            return;
+        }
+
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            e.CancellationToken,
+            _lifetimeCancellation.Token);
+        var cancellationToken = cancellation.Token;
+        var succeeded = false;
+        try
+        {
+            if (!await _bluetoothAudio.DisconnectAsync(headset.Id).ConfigureAwait(true))
+            {
+                return;
+            }
+
+            // Wait For HeadsetManager To Observe The Full Windows Bluetooth Disconnect
+            var deadline = _timeProvider.GetUtcNow() + AudioDisconnectTimeout;
+            while (headset.IsWindowsConnected)
+            {
+                var remaining = deadline - _timeProvider.GetUtcNow();
+                if (remaining <= TimeSpan.Zero)
+                {
+                    return;
+                }
+
+                await Task.Delay(
+                    remaining < AudioDisconnectPollInterval ? remaining : AudioDisconnectPollInterval,
+                    _timeProvider,
+                    cancellationToken).ConfigureAwait(true);
+            }
+
+            await Task.Delay(AudioReconnectSettleDelay, _timeProvider, cancellationToken).ConfigureAwait(true);
+            succeeded = await _bluetoothAudio.ConnectAsync(headset.Id).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            // The Headset View Model Reports The Failed Reconnect
+        }
+        finally
+        {
+            e.Complete(succeeded);
         }
     }
 
@@ -241,6 +309,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         var viewModel = _createHeadsetViewModel(headset);
         viewModel.AutoConnectChanged += OnAutoConnectChanged;
         viewModel.ReconnectRequested += OnReconnectRequested;
+        viewModel.AudioReconnectRequested += OnAudioReconnectRequested;
         viewModel.ConnectRequested += OnConnectRequested;
         Headsets.Add(viewModel);
     }
