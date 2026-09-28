@@ -373,7 +373,6 @@ void HeadsetController::readInitialState() {
     readOptional("firmware", capabilities.firmwareInfo, [&] { initial.firmware = _protocol->getFirmwareVersion(); });
     readOptional("codec", capabilities.codecInfo, [&] { initial.codec = _protocol->getCodec(); });
 
-
     readOptional("playback devices", capabilities.multipoint && _generation.load() == ProtocolGeneration::V2, [&] {
         initial.playbackDevices = _protocol->getPlaybackDevices();
     });
@@ -395,7 +394,10 @@ void HeadsetController::handleNotification(const SonyFrame& frame) {
         } else {
             handled = _generation.load() == ProtocolGeneration::V2
                 ? applyV2Notification(frame.payload)
-                : applyV1Notification(frame.payload, _state);
+                : applyV1Notification(
+                    frame.payload,
+                    _state,
+                    _profile.model == SonyModel::WHXB900N);
         }
         if (handled) {
             snapshot = _state;

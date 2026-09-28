@@ -53,7 +53,10 @@ bool applyEqualizer(std::span<const uint8_t> payload, DeviceState& state) {
 
 } // namespace
 
-bool applyV1Notification(std::span<const uint8_t> payload, DeviceState& state) {
+bool applyV1Notification(
+    std::span<const uint8_t> payload,
+    DeviceState& state,
+    bool allowWhXb900nCodecNotification) {
     if (payload.empty()) {
         return false;
     }
@@ -69,7 +72,11 @@ bool applyV1Notification(std::span<const uint8_t> payload, DeviceState& state) {
         case 0x59:
             return applyEqualizer(payload, state);
         case 0x1B: {
-            // Live Bluetooth codec notification:
+            if (!allowWhXb900nCodecNotification) {
+                return false;
+            }
+
+            // WH-XB900N live Bluetooth codec notification:
             // 1B 00 <codec identifier>
             if (payload.size() < 3 || payload[1] != 0x00) {
                 return false;

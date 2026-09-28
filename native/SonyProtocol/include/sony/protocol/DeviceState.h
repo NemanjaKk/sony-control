@@ -23,10 +23,6 @@ struct DeviceState {
     EqualizerState equalizer;
 
     bool dsee{false};
-    int connectionQuality{-1};  // -1 unknown, 0 sound quality, 1 stable connection
-    int voiceGuidance{-1};      // -1 unknown, 0 off, 1 on
-    int vpt{-1};                // -1 unknown, otherwise preset 0..4
-    int soundPosition{-1};      // -1 unknown, otherwise raw position code
 
     std::string firmware;
     std::string codec;
@@ -38,6 +34,12 @@ struct DeviceState {
     // Devices connected to the headset, when it supports switching playback between them.
     // Empty when it doesn't, or when the list hasn't been read.
     std::vector<PlaybackDevice> playbackDevices;
+
+    // WH-XB900N legacy state. Appended so existing DeviceState fields retain their layout.
+    int connectionQuality{-1};  // -1 unknown, 0 sound quality, 1 stable connection
+    int voiceGuidance{-1};      // -1 unknown, 0 off, 1 on
+    int vpt{-1};                // -1 unknown, otherwise preset 0..4
+    int soundPosition{-1};      // -1 unknown, otherwise raw position code
 };
 
 using DeviceStateSnapshot = std::shared_ptr<const DeviceState>;

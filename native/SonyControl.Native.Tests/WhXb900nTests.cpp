@@ -214,21 +214,43 @@ TEST_F(WhXb900nConnection, LegacySpatialAndVoiceGuidanceUseCapturedCommands) {
     EXPECT_EQ(controller->state().voiceGuidance, 0);
 }
 
+TEST_F(WhXb900nConnection, RejectsInvalidLegacySpatialValuesWithoutSending) {
+    connect();
+
+    const auto requestCount = headset->requests().size();
+    const auto initialState = controller->state();
+
+    EXPECT_THROW(controller->setVpt(-1), SonyException);
+    EXPECT_THROW(controller->setVpt(5), SonyException);
+    EXPECT_THROW(controller->setSoundPosition(-1), SonyException);
+    EXPECT_THROW(controller->setSoundPosition(0x10), SonyException);
+
+    EXPECT_EQ(headset->requests().size(), requestCount);
+    EXPECT_EQ(controller->state().vpt, initialState.vpt);
+    EXPECT_EQ(controller->state().soundPosition, initialState.soundPosition);
+}
+
 TEST(WhXb900nNotifications, ParsesLiveCodecChanges) {
     DeviceState state;
 
-    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x01}, state));
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x01}, state, true));
     EXPECT_EQ(state.codec, "SBC");
 
-    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x02}, state));
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x02}, state, true));
     EXPECT_EQ(state.codec, "AAC");
 
-    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x20}, state));
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x20}, state, true));
     EXPECT_EQ(state.codec, "aptX");
 
-    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x21}, state));
+    EXPECT_TRUE(applyV1Notification(Payload{0x1b, 0x00, 0x21}, state, true));
     EXPECT_EQ(state.codec, "aptX HD");
 
-    EXPECT_FALSE(applyV1Notification(Payload{0x1b, 0x00, 0xff}, state));
+    EXPECT_FALSE(applyV1Notification(Payload{0x1b, 0x00, 0xff}, state, true));
     EXPECT_EQ(state.codec, "aptX HD");
+}
+
+TEST_F(WhXb900nConnection, LiveCodecNotificationsUpdateOnlyThisModel) {
+    connect();
+    headset->notify({0x1b, 0x00, 0x02});
+    EXPECT_TRUE(waitUntil([&] { return controller->state().codec == "AAC"; }));
 }

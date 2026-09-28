@@ -68,6 +68,9 @@ constexpr auto kTimeout = std::chrono::milliseconds(1000);
 
 } // namespace
 
+ProtocolV1::ProtocolV1(SonyProtocolSession& session)
+    : ProtocolV1(session, false) {}
+
 ProtocolV1::ProtocolV1(SonyProtocolSession& session, bool whXb900nLayout)
     : _session(session), _whXb900nLayout(whXb900nLayout) {}
 
@@ -240,7 +243,7 @@ void ProtocolV1::setEqualizerCustom(int clearBass, const std::array<int, 5>& ban
 
 bool ProtocolV1::getDsee() {
     if (!_whXb900nLayout) {
-        throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on this Protocol V1 model");
+        throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on Protocol V1");
     }
     // WH-XB900N (firmware 4.5.2), captured from Sony Sound Connect:
     // GET E6 02 -> RET E7 02 00 <00 Off / 01 Auto>.
@@ -260,7 +263,7 @@ void ProtocolV1::powerOff() {
 
 void ProtocolV1::setDsee(bool enabled) {
     if (!_whXb900nLayout) {
-        throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on this Protocol V1 model");
+        throw SonyException(SonyErrorCode::Unsupported, "DSEE is not supported on Protocol V1");
     }
     // WH-XB900N: SET E8 02 00 <00 Off / 01 Auto> -> RET E9 02 00 <same>.
     const uint8_t requested = static_cast<uint8_t>(enabled ? 0x01 : 0x00);
@@ -325,7 +328,7 @@ std::string ProtocolV1::getCodec() {
 
 int ProtocolV1::getAutoPowerOff() {
     if (!_whXb900nLayout) {
-        throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on this Protocol V1 model");
+        throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on Protocol V1");
     }
 
     // WH-XB900N: GET F6 04 -> RET F7 04 01 <current> <last timed>.
@@ -351,7 +354,7 @@ int ProtocolV1::getAutoPowerOff() {
 
 void ProtocolV1::setAutoPowerOff(int index) {
     if (!_whXb900nLayout) {
-        throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on this Protocol V1 model");
+        throw SonyException(SonyErrorCode::Unsupported, "Auto Power Off is not supported on Protocol V1");
     }
     if (index < 0 || index > 4) {
         throw SonyException(SonyErrorCode::Unsupported, "WH-XB900N auto power-off option is not supported");
@@ -405,6 +408,10 @@ int ProtocolV1::getVpt() {
 }
 
 void ProtocolV1::setVpt(int preset) {
+    if (_whXb900nLayout && (preset < 0 || preset > 4)) {
+        throw SonyException(SonyErrorCode::ProtocolViolation, "Invalid WH-XB900N VPT preset");
+    }
+
     std::vector<uint8_t> payload = {
         0x48,
         0x01,
@@ -431,6 +438,12 @@ int ProtocolV1::getSoundPosition() {
 }
 
 void ProtocolV1::setSoundPosition(int preset) {
+    if (_whXb900nLayout &&
+        (preset < 0 || preset > 0xff ||
+         !isWhXb900nSoundPositionCode(static_cast<uint8_t>(preset)))) {
+        throw SonyException(SonyErrorCode::ProtocolViolation, "Invalid WH-XB900N sound-position preset");
+    }
+
     std::vector<uint8_t> payload = {
         0x48,
         0x02,
@@ -438,6 +451,7 @@ void ProtocolV1::setSoundPosition(int preset) {
     };
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
+
 int ProtocolV1::getVoiceGuidance() {
     if (!_whXb900nLayout) {
         throw SonyException(SonyErrorCode::Unsupported, "Voice guidance is available for WH-XB900N only");

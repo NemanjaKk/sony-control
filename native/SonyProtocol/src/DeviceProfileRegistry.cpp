@@ -54,14 +54,14 @@ const std::vector<DeviceProfile>& getStaticProfiles() {
                 .equalizer = true,
                 .clearBass = true,
                 .dsee = true,
-                .connectionQuality = true,
                 .speakToChat = false,
                 .adaptiveVolume = false,
                 .autoPowerOff = true,
                 .firmwareInfo = true,
                 .codecInfo = true,
                 .wearSensor = false,
-                .multipoint = false
+                .multipoint = false,
+                .connectionQuality = true
             }
         },
         // WH-1000XM4 (V1 protocol, ANC/Ambient, Single battery, wear sensor, multipoint)

@@ -7,7 +7,6 @@ namespace SonyControl.Presentation.Tests;
 /// Crosses the real WinRT boundary into SonyControl.Core.dll, the same way the app does.
 /// </summary>
 [TestClass]
-[DoNotParallelize]
 public sealed class HeadsetClientActivationTests
 {
     [TestMethod]
@@ -135,7 +134,6 @@ public sealed class HeadsetClientActivationTests
 /// is set, e.g. <c>$env:SONY_TEST_XM6_ADDRESS = "AC:80:0A:12:34:56"</c>.
 /// </summary>
 [TestClass]
-[DoNotParallelize]
 public sealed class HardwareTests
 {
     [TestMethod]

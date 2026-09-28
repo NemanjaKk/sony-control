@@ -62,12 +62,14 @@ public sealed record HeadsetFeatures(
     bool Equalizer,
     bool ClearBass,
     bool Dsee,
-    bool ConnectionQuality,
     bool SpeakToChat,
     bool AdaptiveVolume,
     bool AutoPowerOff,
     bool FirmwareInfo,
-    bool CodecInfo);
+    bool CodecInfo)
+{
+    public bool ConnectionQuality { get; init; }
+}
 
 /// <summary>
 /// Everything the headset last confirmed.
@@ -81,12 +83,16 @@ public sealed record HeadsetSnapshot(
     bool AdaptiveVolume,
     int AutoPowerOff,
     string Firmware,
-    string Codec,
-    int ConnectionQuality = -1,
-    int VoiceGuidance = -1,
-    int Vpt = -1,
-    int SoundPosition = -1)
+    string Codec)
 {
+    public int ConnectionQuality { get; init; } = -1;
+
+    public int VoiceGuidance { get; init; } = -1;
+
+    public int Vpt { get; init; } = -1;
+
+    public int SoundPosition { get; init; } = -1;
+
     /// <summary>
     /// Devices connected to the headset (multipoint), when it can switch playback between
     /// them; empty when it can't.

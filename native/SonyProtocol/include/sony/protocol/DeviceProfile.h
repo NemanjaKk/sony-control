@@ -44,7 +44,6 @@ struct DeviceCapabilities
     bool clearBass = false;
 
     bool dsee = false;
-    bool connectionQuality = false;
 
     bool speakToChat = false;
     bool adaptiveVolume = false;
@@ -57,6 +56,9 @@ struct DeviceCapabilities
     bool wearSensor = false;
 
     bool multipoint = false;
+
+    // WH-XB900N-specific playback connection preference support.
+    bool connectionQuality = false;
 };
 
 struct DeviceProfile

@@ -19,7 +19,7 @@ public interface IBluetoothAudio
     /// <summary>
     /// Asks Windows to disconnect the headset's full Bluetooth link.
     /// </summary>
-    Task<bool> DisconnectAsync(string bluetoothAddress);
+    Task<bool> DisconnectAsync(string bluetoothAddress) => Task.FromResult(false);
 }
 
 /// <summary>

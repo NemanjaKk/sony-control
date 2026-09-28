@@ -412,7 +412,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
             {
                 return;
             }
-            if (!CanEditHeadsetSound)
+            if (HasConnectionQualityControl && !CanEditHeadsetSound)
             {
                 _ui.Defer(() => OnPropertyChanged(nameof(SelectedEqualizerIndex)));
                 return;
@@ -430,7 +430,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         get => _dseeIndex;
         set
         {
-            if (!_applying && !CanEditHeadsetSound)
+            if (!_applying && HasConnectionQualityControl && !CanEditHeadsetSound)
             {
                 OnPropertyChanged(nameof(DseeIndex));
                 return;
@@ -615,11 +615,13 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     // Compact popup behavior: unavailable WH-XB900N sound effects disappear
     // when a non-SBC/AAC codec is actually reported.
+    public bool ShowPopupEqualizer => Features.Equalizer;
+    public bool ShowPopupDsee => Features.Dsee;
     public bool ShowPopupSoundSection =>
-        (Features.Equalizer || Features.Dsee) &&
-        (!HasConnectionQualityControl ||
-         string.IsNullOrEmpty(_snapshot.Codec) ||
-         _snapshot.Codec is "SBC" or "AAC");
+        !HasConnectionQualityControl ||
+        ((ShowPopupEqualizer || ShowPopupDsee) &&
+         (string.IsNullOrEmpty(_snapshot.Codec) ||
+          _snapshot.Codec is "SBC" or "AAC"));
 
     public bool ShowPopupConnectionSeparator =>
         HasConnectionQualityControl && ShowPopupSoundSection;
@@ -663,6 +665,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 resetPosition: value != 0);
         }
     }
+
     public int SoundPositionIndex
     {
         get => _soundPositionIndex;
@@ -694,6 +697,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 resetVpt: value != 0);
         }
     }
+
     private async Task ApplySpatialAsync(
         Func<Task> apply,
         Action revert,
@@ -863,14 +867,14 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static IReadOnlyList<string> StandardAutoPowerOffOptions { get; } =
+    public static IReadOnlyList<string> AutoPowerOffOptions { get; } =
         ["Off", "After 5 minutes", "After 30 minutes", "After 1 hour", "After 3 hours", "When taken off"];
 
     private static IReadOnlyList<string> WhXb900nAutoPowerOffOptions { get; } =
         ["Off", "After 5 minutes", "After 30 minutes", "After 1 hour", "After 3 hours"];
 
-    public IReadOnlyList<string> AutoPowerOffOptions =>
-        ModelName == "WH-XB900N" ? WhXb900nAutoPowerOffOptions : StandardAutoPowerOffOptions;
+    public IReadOnlyList<string> DisplayedAutoPowerOffOptions =>
+        ModelName == "WH-XB900N" ? WhXb900nAutoPowerOffOptions : AutoPowerOffOptions;
 
     // =========================================================================
     // ERRORS
@@ -1095,7 +1099,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
                 snapshot.Codec != "AAC"
                     ? 0
                     : snapshot.Dsee ? 1 : 0;
-            ConnectionQualityIndex = ConnectionModeIndexFor(snapshot);
+            ConnectionQualityIndex = HasConnectionQualityControl ? ConnectionModeIndexFor(snapshot) : -1;
             if (snapshot.VoiceGuidance is >= 0 and <= 1)
             {
                 VoiceGuidanceIndex = snapshot.VoiceGuidance;
@@ -1253,7 +1257,7 @@ public sealed class HeadsetViewModel : ObservableObject, IDisposable
 
     private Task ApplyCustomEqualizerAsync()
     {
-        if (!CanEditHeadsetSound)
+        if (HasConnectionQualityControl && !CanEditHeadsetSound)
         {
             return Task.CompletedTask;
         }

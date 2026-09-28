@@ -59,12 +59,12 @@ namespace SonyControl.Core
         Boolean Equalizer;
         Boolean ClearBass;
         Boolean Dsee;
-        Boolean ConnectionQuality;
         Boolean SpeakToChat;
         Boolean AdaptiveVolume;
         Boolean AutoPowerOff;
         Boolean FirmwareInfo;
         Boolean CodecInfo;
+        Boolean ConnectionQuality;
     };
 
     struct HeadsetState
@@ -133,16 +133,18 @@ namespace SonyControl.Core
         Windows.Foundation.IAsyncAction SetNoiseControlAsync(NoiseControlInfo value);
         Windows.Foundation.IAsyncAction SetEqualizerPresetAsync(Int32 preset);
         Windows.Foundation.IAsyncAction SetEqualizerCustomAsync(EqualizerInfo value);
-        Windows.Foundation.IAsyncAction SetConnectionQualityAsync(Boolean prioritizeStableConnection);
         Windows.Foundation.IAsyncAction SetDseeAsync(Boolean enabled);
-        Windows.Foundation.IAsyncAction SetVptAsync(Int32 preset);
-        Windows.Foundation.IAsyncAction SetSoundPositionAsync(Int32 position);
-        Windows.Foundation.IAsyncAction SetVoiceGuidanceAsync(Int32 value);
         Windows.Foundation.IAsyncAction PowerOffAsync();
         Windows.Foundation.IAsyncAction SetSpeakToChatAsync(Boolean enabled);
         Windows.Foundation.IAsyncAction SetAdaptiveVolumeAsync(Boolean enabled);
         Windows.Foundation.IAsyncAction SetAutoPowerOffAsync(Int32 index);
         Windows.Foundation.IAsyncAction SwitchPlaybackAsync(String address);
+
+        // WH-XB900N-specific controls. Appended to preserve existing WinRT method order.
+        Windows.Foundation.IAsyncAction SetConnectionQualityAsync(Boolean prioritizeStableConnection);
+        Windows.Foundation.IAsyncAction SetVptAsync(Int32 preset);
+        Windows.Foundation.IAsyncAction SetSoundPositionAsync(Int32 position);
+        Windows.Foundation.IAsyncAction SetVoiceGuidanceAsync(Int32 value);
 
         // Raised on a background thread after every confirmed change.
         event Windows.Foundation.TypedEventHandler<HeadsetClient, HeadsetState> StateChanged;

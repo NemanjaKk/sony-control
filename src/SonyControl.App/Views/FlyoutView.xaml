@@ -342,7 +342,7 @@
                     <StackPanel Spacing="8">
                         <Grid
                             ColumnDefinitions="*,Auto"
-                            Visibility="{x:Bind ViewModel.CurrentHeadset.Features.Equalizer, Mode=OneWay, FallbackValue=Collapsed}">
+                            Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupEqualizer, Mode=OneWay, FallbackValue=Collapsed}">
                             <TextBlock VerticalAlignment="Center" Text="Equalizer" />
                             <ComboBox
                                 Grid.Column="1"
@@ -354,7 +354,7 @@
                         </Grid>
                         <Grid
                             ColumnDefinitions="*,Auto"
-                            Visibility="{x:Bind ViewModel.CurrentHeadset.Features.Dsee, Mode=OneWay, FallbackValue=Collapsed}">
+                            Visibility="{x:Bind ViewModel.CurrentHeadset.ShowPopupDsee, Mode=OneWay, FallbackValue=Collapsed}">
                             <TextBlock
                                 VerticalAlignment="Center"
                                 Text="{x:Bind ViewModel.CurrentHeadset.DseeName, Mode=OneWay}" />

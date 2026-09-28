@@ -100,11 +100,13 @@ public sealed class WinRtHeadset : IHeadset
         state.AdaptiveVolume,
         state.AutoPowerOff,
         state.Firmware ?? "",
-        state.Codec ?? "",
-        state.ConnectionQuality,
-        state.VoiceGuidance,
-        state.Vpt,
-        state.SoundPosition);
+        state.Codec ?? "")
+    {
+        ConnectionQuality = state.ConnectionQuality,
+        VoiceGuidance = state.VoiceGuidance,
+        Vpt = state.Vpt,
+        SoundPosition = state.SoundPosition,
+    };
 
     private static int? Known(int level) => level < 0 ? null : level;
 
@@ -131,12 +133,14 @@ public sealed class WinRtHeadset : IHeadset
         capabilities.Equalizer,
         capabilities.ClearBass,
         capabilities.Dsee,
-        capabilities.ConnectionQuality,
         capabilities.SpeakToChat,
         capabilities.AdaptiveVolume,
         capabilities.AutoPowerOff,
         capabilities.FirmwareInfo,
-        capabilities.CodecInfo);
+        capabilities.CodecInfo)
+    {
+        ConnectionQuality = capabilities.ConnectionQuality,
+    };
 
     private void OnStateChanged(Core.HeadsetClient sender, Core.HeadsetState args) =>
         StateChanged?.Invoke(this, WithPlaybackDevices(ToSnapshot(args)));

@@ -33,14 +33,6 @@ public:
     virtual bool getDsee() = 0;
     virtual void setDsee(bool enabled) = 0;
 
-    // Bluetooth playback connection preference. 0 = sound quality, 1 = stable connection.
-    virtual int getConnectionQuality() {
-        throw SonyException(SonyErrorCode::Unsupported, "Connection quality isn't supported");
-    }
-    virtual void setConnectionQuality(bool /*prioritizeStableConnection*/) {
-        throw SonyException(SonyErrorCode::Unsupported, "Connection quality isn't supported");
-    }
-
     virtual std::string getFirmwareVersion() = 0;
     virtual std::string getCodec() = 0;
 
@@ -62,6 +54,14 @@ public:
     }
     virtual void switchPlayback(const std::string& /*address*/) {
         throw SonyException(SonyErrorCode::Unsupported, "Playback switching isn't supported");
+    }
+
+    // WH-XB900N playback connection preference. Appended to preserve existing virtual slots.
+    virtual int getConnectionQuality() {
+        throw SonyException(SonyErrorCode::Unsupported, "Connection quality isn't supported");
+    }
+    virtual void setConnectionQuality(bool /*prioritizeStableConnection*/) {
+        throw SonyException(SonyErrorCode::Unsupported, "Connection quality isn't supported");
     }
 };
 

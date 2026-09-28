@@ -12,7 +12,8 @@ namespace sony::protocol {
 // 0x10/0x11 instead.
 class ProtocolV1 : public IProtocol {
 public:
-    explicit ProtocolV1(SonyProtocolSession& session, bool whXb900nLayout = false);
+    explicit ProtocolV1(SonyProtocolSession& session);
+    ProtocolV1(SonyProtocolSession& session, bool whXb900nLayout);
     ~ProtocolV1() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {

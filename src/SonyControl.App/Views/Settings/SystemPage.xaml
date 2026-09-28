@@ -29,7 +29,7 @@
                                 MinWidth="180"
                                 VerticalAlignment="Center"
                                 AutomationProperties.Name="Auto power-off"
-                                ItemsSource="{x:Bind ViewModel.SelectedHeadset.AutoPowerOffOptions, Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.SelectedHeadset.DisplayedAutoPowerOffOptions, Mode=OneWay}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedHeadset.AutoPowerOffIndex, Mode=TwoWay}" />
                         </Grid>
                     </Border>

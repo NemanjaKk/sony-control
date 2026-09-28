@@ -233,6 +233,22 @@ public sealed class HeadsetViewModelTests
     }
 
     [TestMethod]
+    public async Task OtherHeadsetKeepsOriginalSoundCommandsWhenDisconnected()
+    {
+        _viewModel.UpdateConnectionState(HeadsetConnectionState.Disconnected);
+
+        _viewModel.SelectedEqualizerIndex = 1;
+        _viewModel.DseeIndex = 1;
+        await _viewModel.ApplyCustomEqualizerCommand.ExecuteAsync(null);
+
+        Assert.IsTrue(_viewModel.ShowPopupSoundSection);
+        Assert.AreEqual("DSEE Extreme", _viewModel.DseeName);
+        Assert.AreEqual(0x10, (int)_headset.Commands[0]);
+        Assert.AreEqual(("dsee", true), ((string, bool))_headset.Commands[1]);
+        Assert.IsInstanceOfType<EqualizerSetting>(_headset.Commands[2]);
+    }
+
+    [TestMethod]
     public async Task WhXb900nAacToHighQualityDisablesDseeAndWaitsForSbc()
     {
         using var headset = new FakeHeadset("WH-XB900N", FakeHeadset.Xb900nFeatures)

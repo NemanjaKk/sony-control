@@ -38,15 +38,19 @@ public interface IHeadset : IDisposable
 
     Task SetEqualizerCustomAsync(EqualizerSetting value);
 
-    Task SetConnectionQualityAsync(bool prioritizeStableConnection);
+    Task SetConnectionQualityAsync(bool prioritizeStableConnection) =>
+        Task.FromException(new NotSupportedException("Connection quality is not supported by this headset."));
 
     Task SetDseeAsync(bool enabled);
 
-    Task SetVptAsync(int preset);
+    Task SetVptAsync(int preset) =>
+        Task.FromException(new NotSupportedException("VPT is not supported by this headset."));
 
-    Task SetSoundPositionAsync(int position);
+    Task SetSoundPositionAsync(int position) =>
+        Task.FromException(new NotSupportedException("Sound position is not supported by this headset."));
 
-    Task SetVoiceGuidanceAsync(int value);
+    Task SetVoiceGuidanceAsync(int value) =>
+        Task.FromException(new NotSupportedException("Voice guidance is not supported by this headset."));
 
     /// <summary>
     /// Turns the headset off. The control link drops afterwards.
