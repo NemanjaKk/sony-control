@@ -10,7 +10,8 @@ namespace sony::protocol {
 class ProtocolV2 : public IProtocol {
 public:
     // earbuds: ask for left/right and case battery before the single-battery query.
-    explicit ProtocolV2(SonyProtocolSession& session, bool earbuds = false);
+    // ultEqualizer: read/write the equalizer as inquired type 0x03 (ULT series).
+    explicit ProtocolV2(SonyProtocolSession& session, bool earbuds = false, bool ultEqualizer = false);
     ~ProtocolV2() override = default;
 
     [[nodiscard]] ProtocolGeneration generation() const noexcept override {
@@ -55,6 +56,9 @@ private:
     SonyProtocolSession& _session;
     std::mutex _mutex;
     bool _earbuds{false};
+    bool _ultEqualizer{false};
+
+    [[nodiscard]] uint8_t eqInquiredType() const noexcept;
     // Noise control type the headset answered: 0x19 (WF-1000XM6) or 0x17 (upstream). 0 = not read yet.
     uint8_t _ncAsmType{0};
     int _lastAmbientLevel{10};

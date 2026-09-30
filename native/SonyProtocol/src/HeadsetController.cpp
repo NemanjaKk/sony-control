@@ -318,7 +318,8 @@ void HeadsetController::initializeProtocolForConnection(uint64_t disconnectGener
 
 void HeadsetController::createProtocol(ProtocolGeneration generation) {
     if (generation == ProtocolGeneration::V2) {
-        _protocol = std::make_unique<ProtocolV2>(*_session, _profile.capabilities.dualBattery);
+        _protocol = std::make_unique<ProtocolV2>(*_session, _profile.capabilities.dualBattery,
+                                                _profile.capabilities.ultEqualizer);
     } else {
         _protocol = std::make_unique<ProtocolV1>(*_session, _profile.model == SonyModel::WHXB900N);
     }
