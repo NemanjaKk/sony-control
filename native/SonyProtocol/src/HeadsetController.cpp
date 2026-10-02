@@ -133,13 +133,24 @@ void HeadsetController::setNoiseControl(const NoiseControlState& value) {
     });
 }
 
+uint8_t HeadsetController::currentUltMode() const {
+    std::lock_guard lock(_stateMutex);
+    return _state.equalizer.ultMode;
+}
+
 void HeadsetController::setEqualizerPreset(int preset) {
-    command([&] { _protocol->setEqualizerPreset(preset); });
+    command([&] {
+        _protocol->setEqualizerUltMode(currentUltMode());
+        _protocol->setEqualizerPreset(preset);
+    });
     updateState([&](DeviceState& state) { state.equalizer.preset = preset; });
 }
 
 void HeadsetController::setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) {
-    command([&] { _protocol->setEqualizerCustom(clearBass, bands); });
+    command([&] {
+        _protocol->setEqualizerUltMode(currentUltMode());
+        _protocol->setEqualizerCustom(clearBass, bands);
+    });
     updateState([&](DeviceState& state) {
         state.equalizer.preset = static_cast<int>(EqualizerPreset::Manual);
         state.equalizer.clearBass = clearBass;

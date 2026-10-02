@@ -45,8 +45,6 @@ inline bool parseNcAsmSeamless(std::span<const uint8_t> payload, NoiseControlSta
 // (mos9527/SonyHeadphonesClient, EqEbbInquiredType). Confirmed from a ULT WEAR HCI capture.
 inline constexpr uint8_t kEqInquiredPreset = 0x00;
 inline constexpr uint8_t kEqInquiredPresetAndUltMode = 0x03;
-// Every frame in the ULT WEAR capture carries 01 here; its ULT_1/ULT_2 meaning is unverified.
-inline constexpr uint8_t kEqUltModeDefault = 0x01;
 
 // Equalizer reply or notify:
 //   type 0x00: <op> 00 <preset> <band count> <bands...>
@@ -64,6 +62,9 @@ inline bool parseEqualizer(std::span<const uint8_t> payload, EqualizerState& sta
         return false;
     }
     state.preset = normalizeEqualizerPreset(static_cast<int>(payload[2]));
+    if (payload[1] == kEqInquiredPresetAndUltMode) {
+        state.ultMode = payload[3];
+    }
     state.clearBass = 0;
     state.bands = {0, 0, 0, 0, 0};
 

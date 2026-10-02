@@ -27,6 +27,7 @@ public:
     void setNoiseControl(const NoiseControlState& state) override;
 
     EqualizerState getEqualizer() override;
+    void setEqualizerUltMode(uint8_t mode) override { _ultMode = mode; }
     void setEqualizerPreset(int preset) override;
     void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) override;
 
@@ -53,12 +54,13 @@ public:
     void switchPlayback(const std::string& address) override;
 
 private:
+    [[nodiscard]] uint8_t eqInquiredType() const noexcept;
+
     SonyProtocolSession& _session;
     std::mutex _mutex;
     bool _earbuds{false};
     bool _ultEqualizer{false};
-
-    [[nodiscard]] uint8_t eqInquiredType() const noexcept;
+    uint8_t _ultMode{kEqUltModeDefault};
     // Noise control type the headset answered: 0x19 (WF-1000XM6) or 0x17 (upstream). 0 = not read yet.
     uint8_t _ncAsmType{0};
     int _lastAmbientLevel{10};

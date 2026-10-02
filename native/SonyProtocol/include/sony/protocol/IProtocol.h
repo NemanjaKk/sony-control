@@ -27,6 +27,8 @@ public:
     virtual void setNoiseControl(const NoiseControlState& state) = 0;
 
     virtual EqualizerState getEqualizer() = 0;
+    // ULT mode byte to send with the next equalizer write; ignored by protocols without one.
+    virtual void setEqualizerUltMode(uint8_t) {}
     virtual void setEqualizerPreset(int preset) = 0;
     virtual void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) = 0;
 

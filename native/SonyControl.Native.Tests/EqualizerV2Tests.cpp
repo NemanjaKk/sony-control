@@ -2,10 +2,12 @@
 
 #include "sony/protocol/ProtocolV2.h"
 #include "sony/protocol/SonyProtocolSession.h"
+#include "sony/protocol/V2Layouts.h"
 
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <string>
 
 using sony::protocol::ProtocolV2;
 using sony::protocol::SonyProtocolSession;
@@ -50,6 +52,7 @@ TEST_P(EqualizerV2, GetSendsTheInquiredTypeAndParsesTheReply) {
     EXPECT_EQ(state.preset, 0xa0);
     EXPECT_EQ(state.clearBass, 5);
     EXPECT_EQ(state.bands, (std::array<int, 5>{-4, 0, 5, 8, 10}));
+    EXPECT_EQ(state.ultMode, 0x01);
 }
 
 TEST_P(EqualizerV2, SetPresetCarriesTheUltByteOnlyOnUltDevices) {
@@ -75,6 +78,43 @@ TEST_P(EqualizerV2, SetCustomCarriesTheUltByteOnlyOnUltDevices) {
 }
 
 // googletest 1.8.1 predates INSTANTIATE_TEST_SUITE_P.
+TEST(EqualizerV2Ult, WritesEchoTheUltModeTheHeadsetReported) {
+    auto transport = std::make_unique<FakeHeadset>();
+    auto* headset = transport.get();
+    SonyProtocolSession session(std::move(transport));
+    session.connect(kTestAddress);
+    ProtocolV2 protocol(session, false, true);
+
+    headset->reply({{0x57, 0x03, 0xa0, 0x02, 0x06, 0x0f, 0x06, 0x0a, 0x0f, 0x12, 0x14}});
+    EXPECT_EQ(protocol.getEqualizer().ultMode, 0x02);
+
+    headset->reply();
+    protocol.setEqualizerPreset(0x14);
+    EXPECT_EQ(headset->requests().back(), (Payload{0x58, 0x03, 0x14, 0x02, 0x00}));
+
+    headset->reply();
+    protocol.setEqualizerCustom(5, {-4, 0, 5, 8, 10});
+    EXPECT_EQ(headset->requests().back(), (Payload{0x58, 0x03, 0xa0, 0x02, 0x06, 0x0f, 0x06, 0x0a, 0x0f, 0x12, 0x14}));
+
+    // The controller passes the mode it holds from notifications.
+    headset->reply();
+    protocol.setEqualizerUltMode(0x00);
+    protocol.setEqualizerPreset(0x10);
+    EXPECT_EQ(headset->requests().back(), (Payload{0x58, 0x03, 0x10, 0x00, 0x00}));
+    session.disconnect();
+}
+
+// A legacy notification leaves the ULT mode alone; a type 0x03 one updates it.
+TEST(EqualizerV2Ult, ParseKeepsTheModeFromTheLastUltFrame) {
+    sony::protocol::EqualizerState state;
+    ASSERT_TRUE(sony::protocol::parseEqualizer(
+        Payload{0x59, 0x03, 0x10, 0x02, 0x06, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a}, state));
+    EXPECT_EQ(state.ultMode, 0x02);
+    ASSERT_TRUE(sony::protocol::parseEqualizer(Payload{0x59, 0x00, 0x11, 0x06, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a}, state));
+    EXPECT_EQ(state.preset, 0x11);
+    EXPECT_EQ(state.ultMode, 0x02);
+}
+
 INSTANTIATE_TEST_CASE_P(Layouts, EqualizerV2, ::testing::Bool(),
                         [](const ::testing::TestParamInfo<bool>& info) {
                             return std::string(info.param ? "UltWear" : "Legacy");

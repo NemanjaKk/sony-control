@@ -1,6 +1,5 @@
 #include "sony/protocol/DeviceProfileRegistry.h"
 #include "sony/protocol/ErrorMapping.h"
-#include "sony/protocol/V2Layouts.h"
 
 #include <gtest/gtest.h>
 
@@ -63,24 +62,4 @@ TEST(ErrorMapping, MapsEveryCodeToItsHresult) {
 TEST(DeviceProfile, UltWearUsesUltEqualizerLayout) {
     EXPECT_TRUE(DeviceProfileRegistry::getProfileForDevice("ULT WEAR").capabilities.ultEqualizer);
     EXPECT_FALSE(DeviceProfileRegistry::getProfileForDevice("WH-CH720N").capabilities.ultEqualizer);
-}
-
-// Frames taken from a ULT WEAR HCI capture (Sony's own app).
-TEST(V2Equalizer, ParsesUltModeReply) {
-    const std::vector<uint8_t> reply{0x57, 0x03, 0xa0, 0x01, 0x06, 0x0f, 0x06, 0x0a, 0x0f, 0x12, 0x14};
-    sony::protocol::EqualizerState state;
-    ASSERT_TRUE(sony::protocol::parseEqualizer(reply, state));
-    EXPECT_EQ(state.preset, 0xa0);
-    EXPECT_EQ(state.clearBass, 5);
-    EXPECT_EQ(state.bands[0], -4);
-    EXPECT_EQ(state.bands[4], 10);
-}
-
-TEST(V2Equalizer, ParsesLegacyReplyUnchanged) {
-    const std::vector<uint8_t> reply{0x57, 0x00, 0x10, 0x06, 0x0f, 0x06, 0x0a, 0x0f, 0x12, 0x14};
-    sony::protocol::EqualizerState state;
-    ASSERT_TRUE(sony::protocol::parseEqualizer(reply, state));
-    EXPECT_EQ(state.preset, 0x10);
-    EXPECT_EQ(state.clearBass, 5);
-    EXPECT_EQ(state.bands[4], 10);
 }
