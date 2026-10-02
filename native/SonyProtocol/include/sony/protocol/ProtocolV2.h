@@ -27,9 +27,8 @@ public:
     void setNoiseControl(const NoiseControlState& state) override;
 
     EqualizerState getEqualizer() override;
-    void setEqualizerUltMode(uint8_t mode) override { _ultMode = mode; }
-    void setEqualizerPreset(int preset) override;
-    void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) override;
+    void setEqualizerPreset(int preset, uint8_t ultMode) override;
+    void setEqualizerCustom(int clearBass, const std::array<int, 5>& bands, uint8_t ultMode) override;
 
     bool getDsee() override;
     void setDsee(bool enabled) override;
@@ -60,7 +59,6 @@ private:
     std::mutex _mutex;
     bool _earbuds{false};
     bool _ultEqualizer{false};
-    uint8_t _ultMode{kEqUltModeDefault};
     // Noise control type the headset answered: 0x19 (WF-1000XM6) or 0x17 (upstream). 0 = not read yet.
     uint8_t _ncAsmType{0};
     int _lastAmbientLevel{10};

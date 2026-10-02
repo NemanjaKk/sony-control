@@ -212,27 +212,26 @@ EqualizerState ProtocolV2::getEqualizer() {
     EqualizerState state;
     if (!parseEqualizer(resp.payload, state))
         throw SonyException(SonyErrorCode::InvalidResponse, "Incomplete equalizer response");
-    _ultMode = state.ultMode;
     return state;
 }
 
-void ProtocolV2::setEqualizerPreset(int preset) {
+void ProtocolV2::setEqualizerPreset(int preset, uint8_t ultMode) {
     // SET preset: 58 00 <preset> 00
     // ULT:        58 03 <preset> <ult> 00
     std::vector<uint8_t> payload = { 0x58, eqInquiredType(), static_cast<uint8_t>(preset) };
     if (_ultEqualizer) {
-        payload.push_back(_ultMode);
+        payload.push_back(ultMode);
     }
     payload.push_back(0x00);
     _session.send(SonyFrame{ .type = DataType::DataMdr, .payload = std::move(payload) });
 }
 
-void ProtocolV2::setEqualizerCustom(int clearBass, const std::array<int, 5>& bands) {
+void ProtocolV2::setEqualizerCustom(int clearBass, const std::array<int, 5>& bands, uint8_t ultMode) {
     // SET custom: 58 00 A0 06 <clearBass+10> <b1..b5 +10>
     // ULT:        58 03 A0 <ult> 06 <clearBass+10> <b1..b5 +10>
     std::vector<uint8_t> payload = { 0x58, eqInquiredType(), 0xa0 };
     if (_ultEqualizer) {
-        payload.push_back(_ultMode);
+        payload.push_back(ultMode);
     }
     payload.push_back(0x06);
     payload.push_back(clampEqValue(clearBass));

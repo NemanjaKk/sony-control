@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 
+using sony::protocol::kEqUltModeDefault;
 using sony::protocol::ProtocolV2;
 using sony::protocol::SonyProtocolSession;
 using sony::test::FakeHeadset;
@@ -57,7 +58,7 @@ TEST_P(EqualizerV2, GetSendsTheInquiredTypeAndParsesTheReply) {
 
 TEST_P(EqualizerV2, SetPresetCarriesTheUltByteOnlyOnUltDevices) {
     headset->reply();
-    protocol->setEqualizerPreset(0x14);
+    protocol->setEqualizerPreset(0x14, kEqUltModeDefault);
 
     if (GetParam()) {
         EXPECT_EQ(lastRequest(), (Payload{0x58, 0x03, 0x14, 0x01, 0x00}));   // capture: 58 03 14 01 00
@@ -68,7 +69,7 @@ TEST_P(EqualizerV2, SetPresetCarriesTheUltByteOnlyOnUltDevices) {
 
 TEST_P(EqualizerV2, SetCustomCarriesTheUltByteOnlyOnUltDevices) {
     headset->reply();
-    protocol->setEqualizerCustom(5, {-4, 0, 5, 8, 10});
+    protocol->setEqualizerCustom(5, {-4, 0, 5, 8, 10}, kEqUltModeDefault);
 
     if (GetParam()) {
         EXPECT_EQ(lastRequest(), (Payload{0x58, 0x03, 0xa0, 0x01, 0x06, 0x0f, 0x06, 0x0a, 0x0f, 0x12, 0x14}));
@@ -77,8 +78,7 @@ TEST_P(EqualizerV2, SetCustomCarriesTheUltByteOnlyOnUltDevices) {
     }
 }
 
-// googletest 1.8.1 predates INSTANTIATE_TEST_SUITE_P.
-TEST(EqualizerV2Ult, WritesEchoTheUltModeTheHeadsetReported) {
+TEST(EqualizerV2Ult, WritesSendTheUltModePassedIn) {
     auto transport = std::make_unique<FakeHeadset>();
     auto* headset = transport.get();
     SonyProtocolSession session(std::move(transport));
@@ -86,20 +86,20 @@ TEST(EqualizerV2Ult, WritesEchoTheUltModeTheHeadsetReported) {
     ProtocolV2 protocol(session, false, true);
 
     headset->reply({{0x57, 0x03, 0xa0, 0x02, 0x06, 0x0f, 0x06, 0x0a, 0x0f, 0x12, 0x14}});
-    EXPECT_EQ(protocol.getEqualizer().ultMode, 0x02);
+    const auto reported = protocol.getEqualizer();
+    EXPECT_EQ(reported.ultMode, 0x02);
 
     headset->reply();
-    protocol.setEqualizerPreset(0x14);
+    protocol.setEqualizerPreset(0x14, reported.ultMode);
     EXPECT_EQ(headset->requests().back(), (Payload{0x58, 0x03, 0x14, 0x02, 0x00}));
 
     headset->reply();
-    protocol.setEqualizerCustom(5, {-4, 0, 5, 8, 10});
+    protocol.setEqualizerCustom(5, {-4, 0, 5, 8, 10}, reported.ultMode);
     EXPECT_EQ(headset->requests().back(), (Payload{0x58, 0x03, 0xa0, 0x02, 0x06, 0x0f, 0x06, 0x0a, 0x0f, 0x12, 0x14}));
 
-    // The controller passes the mode it holds from notifications.
+    // A different mode (say 00 after the headset reported it) goes out as given
     headset->reply();
-    protocol.setEqualizerUltMode(0x00);
-    protocol.setEqualizerPreset(0x10);
+    protocol.setEqualizerPreset(0x10, 0x00);
     EXPECT_EQ(headset->requests().back(), (Payload{0x58, 0x03, 0x10, 0x00, 0x00}));
     session.disconnect();
 }
@@ -115,6 +115,7 @@ TEST(EqualizerV2Ult, ParseKeepsTheModeFromTheLastUltFrame) {
     EXPECT_EQ(state.ultMode, 0x02);
 }
 
+// googletest 1.8.1 predates INSTANTIATE_TEST_SUITE_P.
 INSTANTIATE_TEST_CASE_P(Layouts, EqualizerV2, ::testing::Bool(),
                         [](const ::testing::TestParamInfo<bool>& info) {
                             return std::string(info.param ? "UltWear" : "Legacy");
